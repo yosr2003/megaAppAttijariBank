@@ -1,6 +1,6 @@
-// components/StepIndicator.tsx
 import React, { useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Animated } from 'react-native';
+import { Colors } from '../constants/Colors';
 
 interface StepIndicatorProps {
   currentStep: number;
@@ -8,16 +8,20 @@ interface StepIndicatorProps {
 
 export default function StepIndicator({ currentStep }: StepIndicatorProps) {
   const steps = [
-    { number: 1, label: 'Personal' },
-    { number: 2, label: 'Identity' },
-    { number: 3, label: 'Security' },
+    { number: 1, label: 'Account' },
+    { number: 2, label: 'Role' },
+    { number: 3, label: 'Details' },
+    { number: 4, label: 'Security' },
   ];
 
+  // Animation values for scale of active step
   const scale1 = useRef(new Animated.Value(1)).current;
   const scale2 = useRef(new Animated.Value(1)).current;
   const scale3 = useRef(new Animated.Value(1)).current;
+  const scale4 = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
+    // Pulse animation for the active step
     const animateActiveStep = (scaleValue: Animated.Value) => {
       Animated.sequence([
         Animated.timing(scaleValue, {
@@ -36,25 +40,29 @@ export default function StepIndicator({ currentStep }: StepIndicatorProps) {
     if (currentStep === 1) animateActiveStep(scale1);
     if (currentStep === 2) animateActiveStep(scale2);
     if (currentStep === 3) animateActiveStep(scale3);
-  }, [currentStep, scale1, scale2, scale3]);
+    if (currentStep === 4) animateActiveStep(scale4);
+  }, [currentStep, scale1, scale2, scale3, scale4]);
 
   const getScale = (stepNum: number) => {
     if (stepNum === 1) return scale1;
     if (stepNum === 2) return scale2;
-    return scale3;
+    if (stepNum === 3) return scale3;
+    return scale4;
   };
 
   return (
     <View style={styles.container}>
+      {/* Connecting Line background */}
       <View style={styles.lineBackground}>
         <View
           style={[
             styles.lineProgress,
-            { width: currentStep === 1 ? '0%' : currentStep === 2 ? '50%' : '100%' },
+            { width: currentStep === 1 ? '0%' : currentStep === 2 ? '33.3%' : currentStep === 3 ? '66.6%' : '100%' },
           ]}
         />
       </View>
 
+      {/* Steps Row */}
       <View style={styles.stepsRow}>
         {steps.map((step) => {
           const isActive = step.number === currentStep;

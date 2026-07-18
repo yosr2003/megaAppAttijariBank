@@ -1,4 +1,3 @@
-// app/(auth)/register.tsx
 import React, { useEffect, useRef, useState } from 'react';
 import {
   StyleSheet,
@@ -28,6 +27,7 @@ import GradientButton from '../../components/GradientButtonCreateAcc';
 export default function RegisterScreen() {
   const router = useRouter();
 
+  // Form states
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
@@ -39,6 +39,7 @@ export default function RegisterScreen() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
 
+  // Fade-in animation on screen mount
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -49,6 +50,7 @@ export default function RegisterScreen() {
     }).start();
   }, [fadeAnim]);
 
+  // Check if form is valid to enable Continue button
   const isFormValid =
     firstName.trim().length > 0 &&
     lastName.trim().length > 0 &&
@@ -62,10 +64,8 @@ export default function RegisterScreen() {
 
   const handleContinue = () => {
     if (isFormValid) {
-      Alert.alert(
-        'Registration',
-        'Step 1 Complete! Moving to Step 2 (Identity Verification).'
-      );
+      console.log("GO TO ROLE SELECTION");
+      router.push("/(auth)/role-selection");
     }
   };
 
@@ -88,6 +88,7 @@ export default function RegisterScreen() {
           >
             <Animated.View style={[styles.mainContent, { opacity: fadeAnim }]}>
               
+              {/* Logo & App Name Header */}
               <View style={styles.headerContainer}>
                 <Logo />
                 <View style={styles.badgeContainer}>
@@ -104,13 +105,16 @@ export default function RegisterScreen() {
                 </Text>
               </View>
 
+              {/* Step Progress Indicator */}
               <StepIndicator currentStep={1} />
 
+              {/* Profile Avatar Uploader */}
               <ProfileAvatar
                 imageUri={profileImage}
                 onImagePicked={setProfileImage}
               />
 
+              {/* Personal Info Card */}
               <Card title="Personal Information" iconName="user">
                 <InputField
                   label="First Name"
@@ -150,6 +154,7 @@ export default function RegisterScreen() {
                 />
               </Card>
 
+              {/* Contact Details Card */}
               <Card title="Contact Details" iconName="phone">
                 <InputField
                   label="Phone Number"
@@ -172,6 +177,7 @@ export default function RegisterScreen() {
                 />
               </Card>
 
+              {/* Security Card */}
               <Card title="Security" iconName="lock">
                 <InputField
                   label="Password"
@@ -192,14 +198,19 @@ export default function RegisterScreen() {
                 />
               </Card>
 
+              {/* Continue Button */}
               <View style={styles.buttonContainer}>
                 <GradientButton
-                  title="Continue to Identity"
-                  onPress={handleContinue}
-                  disabled={!isFormValid}
+                  title="Who are you ?"
+                  onPress={() => {
+                      console.log("BUTTON CLICKED");
+                      router.push("/(auth)/role-selection");
+                  }}
+                  disabled={false}
                 />
               </View>
 
+              {/* Footer Sign In Option */}
               <View style={styles.footerContainer}>
                 <Text style={styles.footerText}>
                   Already have an account?{' '}
