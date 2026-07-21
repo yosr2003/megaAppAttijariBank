@@ -49,6 +49,7 @@ export default function RoleSelectionScreen() {
       iconType: 'feather',
       paramValue: 'CLIENT',
     },
+    
     {
       id: '2',
       title: 'Restaurant Owner',
@@ -98,6 +99,14 @@ export default function RoleSelectionScreen() {
       iconType: 'feather',
       paramValue: 'OTHER_PROFESSIONAL',
     },
+    {
+  id: '8',
+  title: 'Administrator',
+  description: 'Manage users, services, approvals and platform settings.',
+  iconName: 'shield',
+  iconType: 'feather',
+  paramValue: 'ADMIN',
+},
   ];
 
   const handleContinue = () => {

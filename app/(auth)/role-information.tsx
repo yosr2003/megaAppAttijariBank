@@ -80,6 +80,11 @@ export default function RoleInformationScreen() {
           title: 'Complete your Professional Profile',
           subtitle: 'Describe your business profile and upload supporting documentation.',
         };
+      case 'ADMIN':
+        return {
+          title: 'Complete your Admin Profile',
+          subtitle: 'Configure administrator access and platform management permissions.',
+        };
       default:
         return {
           title: 'Complete your Profile',
@@ -176,6 +181,14 @@ export default function RoleInformationScreen() {
           formData.email?.trim() &&
           formData.website?.trim() &&
           formData.licenseUri
+        );
+      case 'ADMIN':
+        return !!(
+          formData.adminId?.trim() &&
+          formData.department?.trim() &&
+          formData.accessLevel &&
+          formData.email?.trim() &&
+          formData.phone?.trim()
         );
       default:
         return false;
@@ -709,7 +722,68 @@ export default function RoleInformationScreen() {
             />
           </Card>
         );
+     case 'ADMIN':
+  return (
+    <Card title="Administrator Profile" iconName="shield">
 
+      <InputField
+        label="Administrator ID"
+        placeholder="ADM-001"
+        leftIconName="hash"
+        value={formData.adminId || ''}
+        onChangeText={(val) => updateField('adminId', val)}
+      />
+
+      <InputField
+        label="Department"
+        placeholder="IT, Management, Support..."
+        leftIconName="briefcase"
+        value={formData.department || ''}
+        onChangeText={(val) => updateField('department', val)}
+      />
+
+      <CustomDropdown
+        label="Access Level"
+        value={formData.accessLevel || ''}
+        onChange={(val) => updateField('accessLevel', val)}
+        options={[
+          'Super Admin',
+          'Manager Admin',
+          'Support Admin'
+        ]}
+        placeholder="Select access level"
+        leftIconName="shield"
+        modalTitle="Select Admin Permission"
+      />
+
+      <InputField
+        label="Email Address"
+        placeholder="admin@super-tounsi.com"
+        leftIconName="mail"
+        keyboardType="email-address"
+        value={formData.email || ''}
+        onChangeText={(val) => updateField('email', val)}
+      />
+
+      <InputField
+        label="Phone Number"
+        placeholder="+216 50 000 000"
+        leftIconName="phone"
+        keyboardType="phone-pad"
+        value={formData.phone || ''}
+        onChangeText={(val) => updateField('phone', val)}
+      />
+
+      <UploadField
+        label="Authorization Document"
+        value={formData.authorizationUri || null}
+        onChange={(uri) => updateField('authorizationUri', uri)}
+        placeholder="Upload admin authorization document"
+        iconName="file"
+      />
+
+    </Card>
+  );
       default:
         return null;
     }
