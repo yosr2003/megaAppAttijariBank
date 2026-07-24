@@ -157,7 +157,7 @@ public class UserController {
             return ResponseEntity.badRequest()
                     .body(new MessageResponse("Invalid user type."));
         }
-
+//test
         return ResponseEntity.ok(
                 new MessageResponse("User registered successfully.")
         );
