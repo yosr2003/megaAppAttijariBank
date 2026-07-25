@@ -124,8 +124,11 @@ public class WebSecurityConfig {
 
 
                         // Auth public
-                        .requestMatchers("/api/auth/**")
-                        .permitAll()
+                        .requestMatchers(
+                                "/api/auth/login",
+                                "/api/auth/signup",
+                                "/error"
+                        ).permitAll()
 
 
                         // Swagger si tu l'ajoutes

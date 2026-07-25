@@ -52,7 +52,7 @@ public class SignupRequest {
     @Size(min = 8, max = 100)
     private String password;
 
-    private String profileImage;
+
 
     // ==========================
     // Champs Client
@@ -76,5 +76,5 @@ public class SignupRequest {
 
     private String accessLevel;
 
-    private String authorizationDocument;
+
 }

@@ -65,7 +65,20 @@ export default function RegisterScreen() {
   const handleContinue = () => {
     if (isFormValid) {
       console.log("GO TO ROLE SELECTION");
-      router.push("/(auth)/role-selection");
+      router.push({
+ pathname:"/(auth)/role-selection",
+ params:{
+    firstName,
+    lastName,
+    cin:nationalId,
+    dateOfBirth: dateOfBirth?.toISOString(),
+    gender,
+    phoneNumber,
+    email,
+    password,
+    profileImage
+ }
+});
     }
   };
 
@@ -200,14 +213,11 @@ export default function RegisterScreen() {
 
               {/* Continue Button */}
               <View style={styles.buttonContainer}>
-                <GradientButton
-                  title="Who are you ?"
-                  onPress={() => {
-                      console.log("BUTTON CLICKED");
-                      router.push("/(auth)/role-selection");
-                  }}
-                  disabled={false}
-                />
+                        <GradientButton
+              title="Who are you ?"
+              onPress={handleContinue}
+              disabled={!isFormValid}
+            />
               </View>
 
               {/* Footer Sign In Option */}

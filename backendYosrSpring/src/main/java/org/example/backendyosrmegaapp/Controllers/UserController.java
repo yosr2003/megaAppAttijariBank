@@ -1,11 +1,16 @@
 package org.example.backendyosrmegaapp.Controllers;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import org.example.backendyosrmegaapp.Enum.UserType;
 import org.example.backendyosrmegaapp.JWT.JwtUtils;
 import org.example.backendyosrmegaapp.Repositories.UserRepository;
+import org.example.backendyosrmegaapp.Services.FileStorageService;
 import org.example.backendyosrmegaapp.Services.UserService;
 import org.example.backendyosrmegaapp.entities.*;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.io.Resource;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -13,14 +18,19 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.util.List;
 
 @CrossOrigin(origins = "*")
 @RestController
 @RequestMapping("/api/auth")
 public class UserController {
-
+    @Autowired
+    private ObjectMapper objectMapper;
+    @Autowired
+    FileStorageService fileStorageService;
     @Autowired
     AuthenticationManager authenticationManager;
     @Autowired
@@ -73,8 +83,33 @@ public class UserController {
 
     }
 
-    @PostMapping("/signup")
-    public ResponseEntity<?> registerUser(@RequestBody SignupRequest request) {
+    @PostMapping(
+            value="/signup",
+            consumes = MediaType.MULTIPART_FORM_DATA_VALUE
+    )
+    public ResponseEntity<?> registerUser(
+
+            @RequestPart("user") String userJson,
+            @RequestPart(value="image", required=false) MultipartFile image,
+            @RequestPart(value="authorizationDocument", required=false) MultipartFile authorizationDocument
+
+    ) throws IOException {
+
+        SignupRequest request =
+                objectMapper.readValue(userJson, SignupRequest.class);
+
+        String imagePath = null;
+
+        if(image != null && !image.isEmpty()){
+            imagePath = fileStorageService.saveProfileImage(image);
+        }
+
+        String authorizationDocumentPath = null;
+
+        if(authorizationDocument != null && !authorizationDocument.isEmpty()){
+            authorizationDocumentPath =
+                    fileStorageService.saveAuthorizationDocument(authorizationDocument);
+        }
 
         // Vérification email
         if(userRepository.existsByEmail(request.getEmail())){
@@ -107,7 +142,7 @@ public class UserController {
             client.setPhoneNumber(request.getPhoneNumber());
             client.setEmail(request.getEmail());
             client.setPassword(encoder.encode(request.getPassword()));
-            client.setProfileImage(request.getProfileImage());
+            client.setProfileImage(imagePath);
 
             client.setEnabled(true);
             client.setEmailVerified(false);
@@ -121,8 +156,13 @@ public class UserController {
             client.setPaymentMethod(request.getPaymentMethod());
             client.setEmergencyContact(request.getEmergencyContact());
             client.setUserType(UserType.CLIENT);
-            userRepository.save(client);
-
+            Client savedClient = userRepository.save(client);
+            return ResponseEntity.ok(
+                    new SignupResponse(
+                            "User registered successfully.",
+                            savedClient.getId()
+                    )
+            );
         }
         else if(request.getUserType() == UserType.ADMIN){
 
@@ -137,7 +177,8 @@ public class UserController {
             admin.setPhoneNumber(request.getPhoneNumber());
             admin.setEmail(request.getEmail());
             admin.setPassword(encoder.encode(request.getPassword()));
-            admin.setProfileImage(request.getProfileImage());
+            admin.setProfileImage(imagePath);
+
 
             admin.setEnabled(true);
             admin.setEmailVerified(false);
@@ -147,9 +188,16 @@ public class UserController {
             // Champs Admin
             admin.setDepartment(request.getDepartment());
             admin.setAccessLevel(request.getAccessLevel());
-            admin.setAuthorizationDocument(request.getAuthorizationDocument());
+            admin.setAuthorizationDocument(authorizationDocumentPath);
             admin.setUserType(UserType.ADMIN);
-            userRepository.save(admin);
+            Admin savedAdmin = userRepository.save(admin);
+
+            return ResponseEntity.ok(
+                    new SignupResponse(
+                            "User registered successfully.",
+                            savedAdmin.getId()
+                    )
+            );
 
         }
         else{
@@ -157,10 +205,6 @@ public class UserController {
             return ResponseEntity.badRequest()
                     .body(new MessageResponse("Invalid user type."));
         }
-//test
-        return ResponseEntity.ok(
-                new MessageResponse("User registered successfully.")
-        );
     }
     /**
      * Récupérer tous les utilisateurs
@@ -248,6 +292,36 @@ public class UserController {
         return ResponseEntity.ok(
                 "User deleted successfully"
         );
+    }
+
+    @GetMapping("/profile-image/{filename}")
+    public ResponseEntity<?> getProfileImage(
+            @PathVariable String filename
+    ){
+
+        Resource resource =
+                fileStorageService.loadImage(filename);
+
+        return ResponseEntity.ok()
+                .header(
+                        HttpHeaders.CONTENT_TYPE,
+                        MediaType.IMAGE_JPEG_VALUE
+                )
+                .body(resource);
+    }
+    @GetMapping("/authorization-document/{filename}")
+    public ResponseEntity<?> getAuthorizationDocument(
+            @PathVariable String filename){
+
+        Resource resource =
+                fileStorageService.loadAuthorizationDocument(filename);
+
+        return ResponseEntity.ok()
+                .header(
+                        HttpHeaders.CONTENT_TYPE,
+                        MediaType.APPLICATION_PDF_VALUE
+                )
+                .body(resource);
     }
 
 

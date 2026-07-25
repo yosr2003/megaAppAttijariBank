@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { signup } from "../../services/authService";
 import {
   StyleSheet,
   View,
@@ -108,100 +109,147 @@ export default function RoleInformationScreen() {
           formData.paymentMethod &&
           formData.emergencyContact?.trim()
         );
-      case 'RESTAURANT_OWNER':
-        return !!(
-          formData.restaurantName?.trim() &&
-          formData.restaurantAddress?.trim() &&
-          formData.businessRegNo?.trim() &&
-          formData.taxNumber?.trim() &&
-          formData.cuisineType?.trim() &&
-          formData.openingTime?.trim() &&
-          formData.closingTime?.trim() &&
-          formData.phone?.trim() &&
-          formData.email?.trim() &&
-          formData.bankAccount?.trim() &&
-          formData.logoUri &&
-          formData.licenseUri
-        );
-      case 'SELLER':
-        return !!(
-          formData.storeName?.trim() &&
-          formData.businessType?.trim() &&
-          formData.taxNumber?.trim() &&
-          formData.registrationNumber?.trim() &&
-          formData.address?.trim() &&
-          formData.phone?.trim() &&
-          formData.email?.trim() &&
-          formData.bankAccount?.trim() &&
-          formData.storeLogoUri &&
-          formData.licenseUri
-        );
-      case 'DELIVERY_DRIVER':
-        return !!(
-          formData.driverLicense?.trim() &&
-          formData.vehicleType &&
-          formData.plateNumber?.trim() &&
-          formData.insuranceNumber?.trim() &&
-          formData.deliveryZone?.trim() &&
-          formData.emergencyContact?.trim() &&
-          formData.vehiclePhotoUri &&
-          formData.licenseUri
-        );
-      case 'TAXI_DRIVER':
-        return !!(
-          formData.taxiLicense?.trim() &&
-          formData.driverLicense?.trim() &&
-          formData.vehicleBrand?.trim() &&
-          formData.vehicleModel?.trim() &&
-          formData.vehicleColor?.trim() &&
-          formData.plateNumber?.trim() &&
-          formData.insurance?.trim() &&
-          formData.currentCity?.trim() &&
-          formData.vehiclePhotoUri
-        );
-      case 'HOTEL_OWNER':
-        return !!(
-          formData.hotelName?.trim() &&
-          formData.address?.trim() &&
-          formData.registrationNumber?.trim() &&
-          formData.hotelPhone?.trim() &&
-          formData.email?.trim() &&
-          formData.numberOfRooms?.trim() &&
-          formData.hotelCategory &&
-          formData.bankAccount?.trim() &&
-          formData.hotelPhotoUri
-        );
-      case 'OTHER_PROFESSIONAL':
-        return !!(
-          formData.profession?.trim() &&
-          formData.businessName?.trim() &&
-          formData.description?.trim() &&
-          formData.address?.trim() &&
-          formData.phone?.trim() &&
-          formData.email?.trim() &&
-          formData.website?.trim() &&
-          formData.licenseUri
-        );
+
       case 'ADMIN':
         return !!(
-          formData.adminId?.trim() &&
           formData.department?.trim() &&
           formData.accessLevel &&
-          formData.email?.trim() &&
-          formData.phone?.trim()
+          formData.authorizationUri
         );
       default:
         return false;
     }
   };
 
-  const handleContinue = () => {
-    if (isFormValid()) {
-      router.push('/(auth)/biometric-setup');
-    } else {
-      Alert.alert('Incomplete form', 'Please fill all required fields and upload documents');
+  const handleContinue = async () => {
+
+if(!isFormValid()){
+    Alert.alert(
+      "Incomplete form",
+      "Please fill all required fields"
+    );
+    return;
+}
+
+
+try {
+
+
+const userData:any = {
+
+
+firstName: params.firstName,
+lastName: params.lastName,
+
+cin: params.cin,
+
+dateOfBirth:
+  Array.isArray(params.dateOfBirth)
+    ? params.dateOfBirth[0].split("T")[0]
+    : params.dateOfBirth?.split("T")[0],
+
+gender: params.gender,
+
+phoneNumber:
+params.phoneNumber,
+
+email:
+params.email,
+
+password:
+params.password,
+
+
+userType: role,
+
+
+
+};
+
+
+
+// CLIENT
+if(role==="CLIENT"){
+
+Object.assign(userData,{
+ preferredLanguage:
+ formData.preferredLanguage,
+
+ address:
+ formData.address,
+
+ walletCurrency:
+ formData.walletCurrency,
+
+ paymentMethod:
+ formData.paymentMethod,
+
+ emergencyContact:
+ formData.emergencyContact
+});
+
+}
+
+
+// ADMIN
+
+if(role==="ADMIN"){
+
+Object.assign(userData,{
+ department:
+ formData.department,
+
+ accessLevel:
+ formData.accessLevel
+});
+
+}
+
+
+
+const form = new FormData();
+
+form.append(
+  "user",
+  {
+    string: JSON.stringify(userData),
+    type: "application/json",
+  } as any
+);
+
+    if (params.profileImage) {
+      form.append("image", {
+        uri: params.profileImage as string,
+        name: "profile.jpg",
+        type: "image/jpeg",
+      } as any);
     }
-  };
+
+    if (role === "ADMIN" && formData.authorizationUri) {
+      form.append("authorizationDocument", {
+        uri: formData.authorizationUri,
+        name: "authorization.jpg",
+        type: "image/jpeg",
+      } as any);
+    }
+
+const result = await signup(form);
+
+Alert.alert("Success", result.message);
+
+router.push({
+    pathname: "/(auth)/biometric-setup",
+    params: {
+        userId: result.userId
+    }
+});
+
+  } catch (error: any) {
+    Alert.alert("Signup Error", error.message);
+  }
+
+
+};
 
   const renderRoleFormFields = () => {
     switch (role) {
@@ -279,14 +327,6 @@ export default function RoleInformationScreen() {
     <Card title="Administrator Profile" iconName="shield">
 
       <InputField
-        label="Administrator ID"
-        placeholder="ADM-001"
-        leftIconName="hash"
-        value={formData.adminId || ''}
-        onChangeText={(val) => updateField('adminId', val)}
-      />
-
-      <InputField
         label="Department"
         placeholder="IT, Management, Support..."
         leftIconName="briefcase"
@@ -306,24 +346,6 @@ export default function RoleInformationScreen() {
         placeholder="Select access level"
         leftIconName="shield"
         modalTitle="Select Admin Permission"
-      />
-
-      <InputField
-        label="Email Address"
-        placeholder="admin@super-tounsi.com"
-        leftIconName="mail"
-        keyboardType="email-address"
-        value={formData.email || ''}
-        onChangeText={(val) => updateField('email', val)}
-      />
-
-      <InputField
-        label="Phone Number"
-        placeholder="+216 50 000 000"
-        leftIconName="phone"
-        keyboardType="phone-pad"
-        value={formData.phone || ''}
-        onChangeText={(val) => updateField('phone', val)}
       />
 
       <UploadField

@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { useLocalSearchParams } from 'expo-router';
 import {
   StyleSheet,
   View,
@@ -31,6 +32,7 @@ export default function RoleSelectionScreen() {
   const router = useRouter();
   const [selectedRole, setSelectedRole] = useState<string | null>(null);
   const fadeAnim = useRef(new Animated.Value(0)).current;
+  const params = useLocalSearchParams();
 
   useEffect(() => {
     Animated.timing(fadeAnim, {
@@ -61,10 +63,13 @@ export default function RoleSelectionScreen() {
 
   const handleContinue = () => {
     if (selectedRole) {
-      router.push({
-        pathname: '/(auth)/role-information',
-        params: { role: selectedRole },
-      });
+    router.push({
+ pathname:'/(auth)/role-information',
+ params:{
+    ...params,
+    role:selectedRole
+ }
+});
     }
   };
 

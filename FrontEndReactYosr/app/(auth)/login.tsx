@@ -1,6 +1,8 @@
 // app/(auth)/login.tsx
 import React, { useEffect, useRef, useState } from 'react';
 import { router } from "expo-router";
+import { login } from "../../services/authService";
+import { saveToken, saveUser } from "../../utils/storage";
 import {
   StyleSheet,
   View,
@@ -36,13 +38,54 @@ export default function LoginScreen() {
     }).start();
   }, [fadeAnim]);
 
-  const handleContinue = () => {
-    if (!email || !password) {
-      Alert.alert('Error', 'Please fill in all fields.');
-      return;
+const handleContinue = async () => {
+
+  if (!email || !password) {
+    Alert.alert("Error", "Please fill in all fields.");
+    return;
+  }
+
+  try {
+
+    const response = await login({
+      email,
+      password,
+    });
+
+    await saveToken(response.token);
+    await saveUser(response);
+
+    Alert.alert(
+      "Success",
+      `Welcome ${response.firstName} ${response.lastName}`
+    );
+
+    console.log(response);
+
+    // Naviguer vers Home
+    router.replace("/(tabs)/explore");
+
+  } catch (error: any) {
+
+    if (error.response) {
+
+      Alert.alert(
+        "Login failed",
+        error.response.data.message || "Invalid credentials"
+      );
+
+    } else {
+
+      Alert.alert(
+        "Network Error",
+        "Unable to connect to the server."
+      );
+
     }
-    Alert.alert('Success', `Logged in with: ${email}`);
-  };
+
+  }
+
+};
 
   const handleForgotPassword = () => {
     Alert.alert('Forgot Password', 'Password reset flow initiated.');

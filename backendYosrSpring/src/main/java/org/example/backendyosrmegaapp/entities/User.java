@@ -69,6 +69,11 @@ public class User {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private UserType userType;
+    @Column(name = "biometric_enabled")
+    private Boolean biometricEnabled = false;
+
+    @Column(name = "biometric_type")
+    private String biometricType;
     @PrePersist
     public void onCreate() {
         createdAt = LocalDateTime.now();
