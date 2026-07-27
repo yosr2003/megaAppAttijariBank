@@ -1,35 +1,32 @@
 import { Tabs } from 'expo-router';
-import React from 'react';
 
-import { HapticTab } from '@/components/haptic-tab';
-import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Colors } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { BottomNavigation, type BottomNavigationItem } from '@/src/components/ui';
 
+const navigationItems: readonly BottomNavigationItem[] = [
+  { icon: 'home-outline', key: 'index', label: 'Home' },
+  { icon: 'storefront-outline', key: 'marketplace', label: 'Marketplace' },
+  { icon: 'compass-outline', key: 'explore', label: 'Explore' },
+];
+
+/** Expo Router remains the navigation owner; the shared component supplies the visual tab bar. */
 export default function TabLayout() {
-  const colorScheme = useColorScheme();
-
   return (
     <Tabs
-      screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
-        headerShown: false,
-        tabBarButton: HapticTab,
-      }}>
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: 'Home',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="house.fill" color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="explore"
-        options={{
-          title: 'Explore',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="paperplane.fill" color={color} />,
-        }}
-      />
+      screenOptions={{ headerShown: false }}
+      tabBar={({ navigation, state }) => (
+        <BottomNavigation
+          activeKey={state.routes[state.index]?.name ?? 'index'}
+          items={navigationItems}
+          onChange={(key) => {
+            if (key === 'index') navigation.navigate('index');
+            if (key === 'marketplace') navigation.navigate('marketplace');
+            if (key === 'explore') navigation.navigate('explore');
+          }}
+        />
+      )}>
+      <Tabs.Screen name="index" options={{ title: 'Home' }} />
+      <Tabs.Screen name="marketplace" options={{ title: 'Marketplace' }} />
+      <Tabs.Screen name="explore" options={{ title: 'Explore' }} />
     </Tabs>
   );
 }

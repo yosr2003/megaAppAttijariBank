@@ -1,0 +1,1378 @@
+import React, { useEffect, useState } from 'react';
+import { StyleSheet, Text, View, Pressable, ScrollView, ActivityIndicator, Alert, Modal, TextInput, FlatList, Image } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { StatusBar } from 'expo-status-bar';
+import Ionicons from '@expo/vector-icons/Ionicons';
+import * as Haptics from 'expo-haptics';
+import * as ImagePicker from 'expo-image-picker';
+import { useIsFocused } from '@react-navigation/native';
+
+import { StarField, Card } from '@/src/components/ui';
+import { useDb } from '@/src/hooks/use-db';
+import { useFormValidation } from '@/src/hooks/use-form-validation';
+import { dbService, P2PProduct, P2PFavorite } from '@/src/services/db-service';
+import { format, V } from '@/src/utils/form-validation';
+
+const CATEGORIES = ['Tous', 'Électronique', 'Véhicules', 'Habillement', 'Maison', 'Loisirs', 'Autre'];
+const LOCATIONS = ['Tunis, La Marsa', 'Sousse, Kantaoui', 'Sfax, Ville', 'Djerba, Midoun', 'Nabeul, Hammamet', 'Bizerte, Corniche', 'Monastir, Skanes'];
+
+export function P2PMarketplaceScreen() {
+  const isFocused = useIsFocused();
+  const { userId, isReady } = useDb();
+  const { errors, validate, clearError, clearAll } = useFormValidation();
+
+  const [products, setProducts] = useState<P2PProduct[]>([]);
+  const [favorites, setFavorites] = useState<P2PFavorite[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Search & Filtering States
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('Tous');
+  const [selectedLocation, setSelectedLocation] = useState('Toute la Tunisie');
+  const [sortOption, setSortOption] = useState<'date' | 'priceAsc' | 'priceDesc'>('date');
+  const [filterCondition, setFilterCondition] = useState<'All' | 'New' | 'Used'>('All');
+
+  // Modals Visibility
+  const [isSellModalVisible, setIsSellModalVisible] = useState(false);
+  const [isDetailModalVisible, setIsDetailModalVisible] = useState(false);
+  const [isFilterModalVisible, setIsFilterModalVisible] = useState(false);
+  const [isChatModalVisible, setIsChatModalVisible] = useState(false);
+
+  // Selected Product Detail
+  const [selectedProduct, setSelectedProduct] = useState<P2PProduct | null>(null);
+
+  // Mock Chat State
+  const [chatMessage, setChatMessage] = useState('');
+  const [chatHistory, setChatHistory] = useState<{ sender: 'user' | 'seller'; text: string; time: string }[]>([]);
+
+  // Sell Form State
+  const [sellTitle, setSellTitle] = useState('');
+  const [sellDesc, setSellDesc] = useState('');
+  const [sellCategory, setSellCategory] = useState('Électronique');
+  const [sellPrice, setSellPrice] = useState('');
+  const [sellCondition, setSellCondition] = useState<'New' | 'Used'>('Used');
+  const [sellLocation, setSellLocation] = useState('Tunis, La Marsa');
+  const [sellContact, setSellContact] = useState('+216 ');
+  const [sellImages, setSellImages] = useState<string[]>([]);
+
+  // Load Marketplace Products & Favorites
+  const loadProducts = async () => {
+    if (!userId) return;
+    try {
+      setLoading(true);
+      const [list, favs] = await Promise.all([
+        dbService.getP2PProducts(),
+        dbService.getP2PFavorites(userId)
+      ]);
+      setProducts(list);
+      setFavorites(favs);
+    } catch (e) {
+      console.error("Error loading products:", e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (isReady && userId && isFocused) {
+      loadProducts();
+    }
+  }, [isReady, userId, isFocused]);
+
+  // Check if product is favorited
+  const isFavorited = (productId: string) => {
+    return favorites.some(f => f.product_id === productId);
+  };
+
+  // Toggle Favorite in database
+  const toggleFavorite = async (product: P2PProduct) => {
+    if (!userId || !product.id) return;
+    try {
+      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      
+      if (isFavorited(product.id)) {
+        await dbService.removeP2PFavorite(userId, product.id);
+        setFavorites(prev => prev.filter(f => f.product_id !== product.id));
+      } else {
+        const newFav = await dbService.addP2PFavorite(userId, product.id);
+        setFavorites(prev => [...prev, newFav]);
+      }
+    } catch (e) {
+      console.error("Error toggling favorite:", e);
+    }
+  };
+
+  // Handle Photo Taking & Library Picks
+  const handlePickImage = async (useCamera: boolean) => {
+    try {
+      let result;
+      if (useCamera) {
+        const cameraPerm = await ImagePicker.requestCameraPermissionsAsync();
+        if (!cameraPerm.granted) {
+          Alert.alert("Permission", "Accès caméra requis.");
+          return;
+        }
+        result = await ImagePicker.launchCameraAsync({
+          mediaTypes: ImagePicker.MediaTypeOptions.Images,
+          allowsEditing: true,
+          quality: 0.8,
+        });
+      } else {
+        const libraryPerm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (!libraryPerm.granted) {
+          Alert.alert("Permission", "Accès galerie requis.");
+          return;
+        }
+        result = await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ImagePicker.MediaTypeOptions.Images,
+          allowsEditing: true,
+          quality: 0.8,
+        });
+      }
+
+      if (!result.canceled && result.assets && result.assets[0].uri) {
+        setSellImages(prev => [...prev, result.assets[0].uri]);
+      }
+    } catch (e) {
+      console.error("Image pick error:", e);
+      Alert.alert("Erreur", "Sélection d'image échouée.");
+    }
+  };
+
+  // Remove image preview
+  const handleRemoveImage = (index: number) => {
+    setSellImages(prev => prev.filter((_, i) => i !== index));
+  };
+
+  // Publish Listing
+  const handlePublishListing = async () => {
+    if (!userId) return;
+
+    const isValid = validate({
+      sellTitle: { value: sellTitle, rules: [V.listingTitle] },
+      sellPrice: { value: sellPrice, rules: [V.tndAmount({ min: 0.001, max: 999_999 })] },
+      sellContact: { value: sellContact, rules: [V.tunisianPhone] },
+      sellDesc: { value: sellDesc, rules: [V.listingDescription] },
+    });
+    if (!isValid) return;
+
+    try {
+      setLoading(true);
+      
+      const finalImages = sellImages.length > 0 ? sellImages : ['https://images.unsplash.com/photo-1531403009284-440f080d1e12?q=80&w=500'];
+
+      await dbService.createP2PProduct({
+        user_id: userId,
+        title: sellTitle.trim(),
+        description: sellDesc.trim(),
+        category: sellCategory,
+        price: parseFloat(sellPrice),
+        condition: sellCondition,
+        location: sellLocation,
+        contact_info: sellContact.trim(),
+        images: finalImages
+      });
+
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Alert.alert("Félicitations", `Votre annonce "${sellTitle}" a été publiée sur le Marketplace !`);
+
+      // Reset Form & Modals
+      setSellTitle('');
+      setSellDesc('');
+      setSellPrice('');
+      setSellImages([]);
+      setSellContact('+216 ');
+      clearAll();
+      setIsSellModalVisible(false);
+      loadProducts();
+    } catch (e) {
+      console.error("Publishing product failed:", e);
+      Alert.alert("Erreur", "Impossible de publier l'annonce.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Open Chat with Seller
+  const openChatWithSeller = (product: P2PProduct) => {
+    setIsDetailModalVisible(false);
+    setChatHistory([
+      { sender: 'seller', text: `Bonjour ! Oui, le produit "${product.title}" est toujours disponible. Vous souhaitez le voir ?`, time: '11:00' }
+    ]);
+    setIsChatModalVisible(true);
+  };
+
+  const handleSendChatMessage = () => {
+    if (!chatMessage.trim()) return;
+    
+    const newMsg = { sender: 'user' as const, text: chatMessage, time: '11:15' };
+    setChatHistory(prev => [...prev, newMsg]);
+    setChatMessage('');
+
+    // Mock seller auto-response after 1.5 seconds
+    setTimeout(() => {
+      setChatHistory(prev => [...prev, {
+        sender: 'seller',
+        text: "D'accord, je suis libre cet après-midi à la Marsa si vous êtes disponible pour faire l'échange.",
+        time: '11:16'
+      }]);
+    }, 1500);
+  };
+
+  // Apply search query, category, location, and sorting filters
+  const filteredProducts = products
+    .filter(product => {
+      const matchesSearch = product.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                            (product.description || '').toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesCategory = selectedCategory === 'Tous' || product.category === selectedCategory;
+      const matchesLocation = selectedLocation === 'Toute la Tunisie' || product.location.includes(selectedLocation.split(',')[0]);
+      const matchesCondition = filterCondition === 'All' || product.condition === filterCondition;
+      
+      return matchesSearch && matchesCategory && matchesLocation && matchesCondition;
+    })
+    .sort((a, b) => {
+      if (sortOption === 'priceAsc') return Number(a.price) - Number(b.price);
+      if (sortOption === 'priceDesc') return Number(b.price) - Number(a.price);
+      return new Date(b.created_at || '').getTime() - new Date(a.created_at || '').getTime(); // Default: Date descending
+    });
+
+  return (
+    <SafeAreaView edges={['top']} style={styles.safeArea}>
+      <StatusBar style="light" />
+      <StarField />
+      
+      <View style={styles.ambientGlow} />
+
+      {/* Main Header */}
+      <View style={styles.header}>
+        <View>
+          <Text style={styles.headerLabel}>ACHATS & VENTES</Text>
+          <Text style={styles.headerTitle}>Marketplace</Text>
+        </View>
+
+        <View style={styles.headerActions}>
+          <Pressable style={styles.actionBtn} onPress={() => setIsSellModalVisible(true)}>
+            <Ionicons name="add-circle-outline" size={20} color="#F7FAFF" />
+            <Text style={styles.actionBtnText}>Vendre</Text>
+          </Pressable>
+        </View>
+      </View>
+
+      {/* Search and Filters Bar */}
+      <View style={styles.searchBarContainer}>
+        <View style={styles.searchBox}>
+          <Ionicons name="search-outline" size={18} color="#7891B2" />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Rechercher un article..."
+            placeholderTextColor="#7891B280"
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
+          {searchQuery ? (
+            <Pressable onPress={() => setSearchQuery('')}>
+              <Ionicons name="close-circle" size={16} color="#7891B2" />
+            </Pressable>
+          ) : null}
+        </View>
+
+        <Pressable style={styles.filterTrigger} onPress={() => setIsFilterModalVisible(true)}>
+          <Ionicons name="options-outline" size={20} color="#2F80ED" />
+        </Pressable>
+      </View>
+
+      {/* Category badgeline */}
+      <View style={{ maxHeight: 50 }}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryScroll}>
+          {CATEGORIES.map((cat) => {
+            const isActive = selectedCategory === cat;
+            return (
+              <Pressable 
+                key={cat} 
+                style={[styles.catBadge, isActive && styles.catBadgeActive]}
+                onPress={() => setSelectedCategory(cat)}
+              >
+                <Text style={[styles.catText, isActive && styles.catTextActive]}>{cat}</Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+      </View>
+
+      {/* Products Feed */}
+      {loading && products.length === 0 ? (
+        <ActivityIndicator size="large" color="#2F80ED" style={{ marginTop: 40 }} />
+      ) : filteredProducts.length > 0 ? (
+        <FlatList
+          data={filteredProducts}
+          keyExtractor={(item) => item.id!}
+          numColumns={2}
+          contentContainerStyle={styles.feedScroll}
+          columnWrapperStyle={styles.feedRow}
+          showsVerticalScrollIndicator={false}
+          renderItem={({ item }) => (
+            <Pressable 
+              style={styles.productCard}
+              onPress={() => {
+                setSelectedProduct(item);
+                setIsDetailModalVisible(true);
+              }}
+            >
+              {/* Product Image */}
+              <View style={styles.productImgContainer}>
+                <Image 
+                  source={{ uri: item.images[0] || 'https://images.unsplash.com/photo-1531403009284-440f080d1e12?q=80&w=300' }} 
+                  style={styles.productImg}
+                />
+                
+                {/* Condition Badge */}
+                <View style={[
+                  styles.condBadge, 
+                  item.condition === 'New' ? { backgroundColor: '#12C979E6' } : { backgroundColor: '#FF8A00E6' }
+                ]}>
+                  <Text style={styles.condText}>{item.condition === 'New' ? 'Neuf' : 'Occasion'}</Text>
+                </View>
+
+                {/* Favorite Toggle button */}
+                <Pressable style={styles.favBtn} onPress={() => toggleFavorite(item)}>
+                  <Ionicons 
+                    name={isFavorited(item.id!) ? "heart" : "heart-outline"} 
+                    size={16} 
+                    color={isFavorited(item.id!) ? "#FF5353" : "#F7FAFF"} 
+                  />
+                </Pressable>
+              </View>
+
+              {/* Product Info */}
+              <View style={styles.productMeta}>
+                <Text style={styles.productPrice}>{Number(item.price).toFixed(3)} TND</Text>
+                <Text style={styles.productTitle} numberOfLines={1}>{item.title}</Text>
+                <View style={styles.locContainer}>
+                  <Ionicons name="location-outline" size={12} color="#7891B2" />
+                  <Text style={styles.productLoc} numberOfLines={1}>{item.location.split(',')[0]}</Text>
+                </View>
+              </View>
+            </Pressable>
+          )}
+        />
+      ) : (
+        <View style={styles.placeholderContainer}>
+          <Ionicons name="basket-outline" size={48} color="#7891B260" />
+          <Text style={styles.placeholderText}>Aucun produit ne correspond à vos filtres.</Text>
+        </View>
+      )}
+
+      {/* ==========================================================
+          MODALS & DETAILS DRAWERS
+         ========================================================== */}
+
+      {/* 1. SELL PRODUCT FORM MODAL */}
+      <Modal visible={isSellModalVisible} transparent animationType="slide" onRequestClose={() => setIsSellModalVisible(false)}>
+        <View style={styles.slideModalOverlay}>
+          <View style={styles.slideModalContent}>
+            <View style={styles.modalHeaderRow}>
+              <Text style={styles.modalTitle}>Créer une Annonce</Text>
+              <Pressable onPress={() => setIsSellModalVisible(false)}>
+                <Ionicons name="close-outline" size={24} color="#F7FAFF" />
+              </Pressable>
+            </View>
+
+            <ScrollView contentContainerStyle={styles.formContainer} showsVerticalScrollIndicator={false}>
+              {/* Product Title */}
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Titre de l'article</Text>
+                <TextInput
+                  style={[styles.textInput, errors.sellTitle && styles.textInputError]}
+                  placeholder="ex: Table en bois massif, Samsung S23..."
+                  placeholderTextColor="#7891B280"
+                  value={sellTitle}
+                  onChangeText={(text) => {
+                    setSellTitle(text);
+                    clearError('sellTitle');
+                  }}
+                  maxLength={100}
+                />
+                {errors.sellTitle ? <Text style={styles.fieldError}>{errors.sellTitle}</Text> : null}
+              </View>
+
+              {/* Price & Condition */}
+              <View style={styles.formRow}>
+                <View style={[styles.inputGroup, { flex: 1 }]}>
+                  <Text style={styles.inputLabel}>Prix (TND)</Text>
+                  <TextInput
+                    style={[styles.textInput, errors.sellPrice && styles.textInputError]}
+                    placeholder="0.000"
+                    placeholderTextColor="#7891B280"
+                    value={sellPrice}
+                    onChangeText={(text) => {
+                      setSellPrice(format.tndAmount(text));
+                      clearError('sellPrice');
+                    }}
+                    keyboardType="decimal-pad"
+                  />
+                  {errors.sellPrice ? <Text style={styles.fieldError}>{errors.sellPrice}</Text> : null}
+                </View>
+
+                <View style={[styles.inputGroup, { flex: 1.2 }]}>
+                  <Text style={styles.inputLabel}>État de l'article</Text>
+                  <View style={styles.badgeSelectorRow}>
+                    {(['New', 'Used'] as const).map((cond) => {
+                      const isActive = sellCondition === cond;
+                      return (
+                        <Pressable 
+                          key={cond} 
+                          style={[styles.badgeSelectorItem, isActive && styles.badgeSelectorItemActive, { flex: 1, alignItems: 'center' }]}
+                          onPress={() => setSellCondition(cond)}
+                        >
+                          <Text style={[styles.badgeSelectorText, isActive && styles.badgeSelectorTextActive]}>
+                            {cond === 'New' ? 'Neuf' : 'Occasion'}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                </View>
+              </View>
+
+              {/* Category selector */}
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Catégorie</Text>
+                <View style={styles.badgeSelectorRow}>
+                  {CATEGORIES.slice(1).map((cat) => {
+                    const isActive = sellCategory === cat;
+                    return (
+                      <Pressable 
+                        key={cat} 
+                        style={[styles.badgeSelectorItem, isActive && styles.badgeSelectorItemActive, { marginBottom: 6 }]}
+                        onPress={() => setSellCategory(cat)}
+                      >
+                        <Text style={[styles.badgeSelectorText, isActive && styles.badgeSelectorTextActive]}>
+                          {cat}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </View>
+
+              {/* Description */}
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Description de l'article</Text>
+                <TextInput
+                  style={[styles.textInput, { minHeight: 60 }, errors.sellDesc && styles.textInputError]}
+                  placeholder="Décrivez l'état de l'article, ses caractéristiques..."
+                  placeholderTextColor="#7891B280"
+                  multiline
+                  value={sellDesc}
+                  onChangeText={(text) => {
+                    setSellDesc(text);
+                    clearError('sellDesc');
+                  }}
+                  maxLength={1000}
+                />
+                {errors.sellDesc ? <Text style={styles.fieldError}>{errors.sellDesc}</Text> : null}
+              </View>
+
+              {/* Location & Contact */}
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Emplacement</Text>
+                <View style={styles.badgeSelectorRow}>
+                  {LOCATIONS.map((loc) => {
+                    const isActive = sellLocation === loc;
+                    return (
+                      <Pressable 
+                        key={loc} 
+                        style={[styles.badgeSelectorItem, isActive && styles.badgeSelectorItemActive, { marginBottom: 6 }]}
+                        onPress={() => setSellLocation(loc)}
+                      >
+                        <Text style={[styles.badgeSelectorText, isActive && styles.badgeSelectorTextActive]}>
+                          {loc.split(',')[0]}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Numéro de Contact</Text>
+                <TextInput
+                  style={[styles.textInput, errors.sellContact && styles.textInputError]}
+                  placeholder="+216 22 123 456"
+                  placeholderTextColor="#7891B280"
+                  value={sellContact}
+                  onChangeText={(text) => {
+                    setSellContact(format.tunisianPhone(text));
+                    clearError('sellContact');
+                  }}
+                  keyboardType="phone-pad"
+                />
+                {errors.sellContact ? <Text style={styles.fieldError}>{errors.sellContact}</Text> : null}
+              </View>
+
+              {/* Multiple Images Selector with Previews */}
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Photos du produit ({sellImages.length})</Text>
+                <View style={styles.imagesPickerRow}>
+                  {/* Camera trigger */}
+                  <Pressable style={styles.imagePickOption} onPress={() => handlePickImage(true)}>
+                    <Ionicons name="camera-outline" size={20} color="#2F80ED" />
+                    <Text style={styles.imagePickOptionText}>Caméra</Text>
+                  </Pressable>
+
+                  {/* Gallery trigger */}
+                  <Pressable style={styles.imagePickOption} onPress={() => handlePickImage(false)}>
+                    <Ionicons name="images-outline" size={20} color="#2F80ED" />
+                    <Text style={styles.imagePickOptionText}>Galerie</Text>
+                  </Pressable>
+                </View>
+
+                {/* Images Previews list */}
+                {sellImages.length > 0 && (
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.previewsScroll}>
+                    {sellImages.map((uri, index) => (
+                      <View key={index} style={styles.previewContainer}>
+                        <Image source={{ uri }} style={styles.previewImg} />
+                        <Pressable style={styles.removePreviewBtn} onPress={() => handleRemoveImage(index)}>
+                          <Ionicons name="close" size={14} color="#F7FAFF" />
+                        </Pressable>
+                      </View>
+                    ))}
+                  </ScrollView>
+                )}
+              </View>
+
+              <View style={styles.rowButtons}>
+                <Pressable style={styles.buttonCancel} onPress={() => setIsSellModalVisible(false)}>
+                  <Text style={styles.buttonCancelText}>Fermer</Text>
+                </Pressable>
+                <Pressable style={styles.buttonSubmit} onPress={handlePublishListing}>
+                  <Text style={styles.buttonSubmitText}>Publier l'Annonce</Text>
+                </Pressable>
+              </View>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* 2. PRODUCT DETAILS MODAL */}
+      <Modal visible={isDetailModalVisible} transparent animationType="slide" onRequestClose={() => setIsDetailModalVisible(false)}>
+        <View style={styles.slideModalOverlay}>
+          {selectedProduct && (
+            <View style={styles.slideModalContent}>
+              <View style={styles.modalHeaderRow}>
+                <Text style={styles.modalTitle} numberOfLines={1}>{selectedProduct.title}</Text>
+                <Pressable onPress={() => setIsDetailModalVisible(false)}>
+                  <Ionicons name="close-outline" size={24} color="#F7FAFF" />
+                </Pressable>
+              </View>
+
+              <ScrollView contentContainerStyle={styles.detailScroll} showsVerticalScrollIndicator={false}>
+                {/* Images Swiper Area */}
+                <View style={styles.detailCarousel}>
+                  <Image 
+                    source={{ uri: selectedProduct.images[0] || 'https://images.unsplash.com/photo-1531403009284-440f080d1e12?q=80&w=500' }} 
+                    style={styles.carouselImg}
+                  />
+                  <View style={styles.carouselPills}>
+                    <View style={styles.carouselPillActive} />
+                  </View>
+                </View>
+
+                {/* Price, Condition, Favorites */}
+                <View style={styles.priceRow}>
+                  <Text style={styles.detailPrice}>{Number(selectedProduct.price).toFixed(3)} TND</Text>
+                  
+                  <View style={styles.detailActionsRow}>
+                    <Pressable style={styles.detailActionBtn} onPress={() => toggleFavorite(selectedProduct)}>
+                      <Ionicons 
+                        name={isFavorited(selectedProduct.id!) ? "heart" : "heart-outline"} 
+                        size={20} 
+                        color={isFavorited(selectedProduct.id!) ? "#FF5353" : "#F7FAFF"} 
+                      />
+                    </Pressable>
+                  </View>
+                </View>
+
+                {/* Details Sheet */}
+                <Card style={styles.detailSpecsCard}>
+                  <View style={styles.specRow}>
+                    <Text style={styles.specLabel}>État</Text>
+                    <Text style={styles.specVal}>{selectedProduct.condition === 'New' ? 'Neuf' : 'Occasion'}</Text>
+                  </View>
+                  <View style={styles.specDivider} />
+                  <View style={styles.specRow}>
+                    <Text style={styles.specLabel}>Catégorie</Text>
+                    <Text style={styles.specVal}>{selectedProduct.category}</Text>
+                  </View>
+                  <View style={styles.specDivider} />
+                  <View style={styles.specRow}>
+                    <Text style={styles.specLabel}>Emplacement</Text>
+                    <Text style={styles.specVal}>{selectedProduct.location}</Text>
+                  </View>
+                </Card>
+
+                {/* Description */}
+                <View style={styles.descSection}>
+                  <Text style={styles.descSectionTitle}>Description</Text>
+                  <Text style={styles.descText}>{selectedProduct.description || "Aucune description fournie."}</Text>
+                </View>
+
+                {/* Seller Section */}
+                <View style={styles.sellerSection}>
+                  <Text style={styles.descSectionTitle}>Informations Vendeur</Text>
+                  <View style={styles.sellerRow}>
+                    <View style={styles.sellerAvatar}>
+                      <Ionicons name="person-circle-outline" size={40} color="#7891B2" />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.sellerName}>Nour Ben Salah (Profil Vérifié)</Text>
+                      <Text style={styles.sellerLoc}>Contact : {selectedProduct.contact_info}</Text>
+                    </View>
+                  </View>
+                </View>
+
+                {/* Actions Buttons */}
+                <View style={styles.rowButtons}>
+                  <Pressable 
+                    style={[styles.buttonSubmit, { backgroundColor: '#12C979' }]}
+                    onPress={() => openChatWithSeller(selectedProduct)}
+                  >
+                    <Ionicons name="chatbubbles-outline" size={18} color="#F7FAFF" style={{ marginRight: 6 }} />
+                    <Text style={styles.buttonSubmitText}>Envoyer un Message</Text>
+                  </Pressable>
+                </View>
+              </ScrollView>
+            </View>
+          )}
+        </View>
+      </Modal>
+
+      {/* 3. FILTER & SEARCH DRAWER MODAL */}
+      <Modal visible={isFilterModalVisible} transparent animationType="fade" onRequestClose={() => setIsFilterModalVisible(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Filtrer les annonces</Text>
+
+            {/* Location selection */}
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Gouvernorat / Emplacement</Text>
+              <View style={styles.badgeSelectorRow}>
+                {['Toute la Tunisie', 'Tunis', 'Sousse', 'Sfax', 'Djerba'].map((loc) => {
+                  const isActive = selectedLocation === loc;
+                  return (
+                    <Pressable 
+                      key={loc} 
+                      style={[styles.badgeSelectorItem, isActive && styles.badgeSelectorItemActive]}
+                      onPress={() => setSelectedLocation(loc)}
+                    >
+                      <Text style={[styles.badgeSelectorText, isActive && styles.badgeSelectorTextActive]}>{loc}</Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+
+            {/* Condition selector */}
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>État de l'article</Text>
+              <View style={styles.badgeSelectorRow}>
+                {([
+                  { value: 'All', label: 'Tous' },
+                  { value: 'New', label: 'Neuf' },
+                  { value: 'Used', label: 'Occasion' }
+                ] as const).map((cond) => {
+                  const isActive = filterCondition === cond.value;
+                  return (
+                    <Pressable 
+                      key={cond.value} 
+                      style={[styles.badgeSelectorItem, isActive && styles.badgeSelectorItemActive]}
+                      onPress={() => setFilterCondition(cond.value)}
+                    >
+                      <Text style={[styles.badgeSelectorText, isActive && styles.badgeSelectorTextActive]}>{cond.label}</Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+
+            {/* Sort order selection */}
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Trier par</Text>
+              <View style={styles.badgeSelectorRow}>
+                {([
+                  { value: 'date', label: 'Plus récents' },
+                  { value: 'priceAsc', label: 'Prix croissant' },
+                  { value: 'priceDesc', label: 'Prix décroissant' }
+                ] as const).map((sort) => {
+                  const isActive = sortOption === sort.value;
+                  return (
+                    <Pressable 
+                      key={sort.value} 
+                      style={[styles.badgeSelectorItem, isActive && styles.badgeSelectorItemActive]}
+                      onPress={() => setSortOption(sort.value)}
+                    >
+                      <Text style={[styles.badgeSelectorText, isActive && styles.badgeSelectorTextActive]}>{sort.label}</Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+
+            <View style={styles.rowButtons}>
+              <Pressable style={styles.buttonSubmit} onPress={() => setIsFilterModalVisible(false)}>
+                <Text style={styles.buttonSubmitText}>Appliquer</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* 4. CHAT WITH SELLER OVERLAY MODAL */}
+      <Modal visible={isChatModalVisible} transparent animationType="slide" onRequestClose={() => setIsChatModalVisible(false)}>
+        <SafeAreaView edges={['top']} style={styles.slideModalOverlay}>
+          <View style={styles.slideModalContent}>
+            <View style={styles.modalHeaderRow}>
+              <View style={styles.chatTitleRow}>
+                <Ionicons name="chatbubble-ellipses-outline" size={22} color="#2F80ED" />
+                <Text style={styles.modalTitle}>Messagerie Marketplace</Text>
+              </View>
+              <Pressable onPress={() => setIsChatModalVisible(false)}>
+                <Ionicons name="close-outline" size={24} color="#F7FAFF" />
+              </Pressable>
+            </View>
+
+            {/* Chat List */}
+            <ScrollView contentContainerStyle={styles.chatScroll} showsVerticalScrollIndicator={false}>
+              {chatHistory.map((msg, index) => {
+                const isSeller = msg.sender === 'seller';
+                return (
+                  <View 
+                    key={index} 
+                    style={[styles.chatBubbleContainer, isSeller ? styles.bubbleLeft : styles.bubbleRight]}
+                  >
+                    <View style={[styles.chatBubble, isSeller ? styles.chatBubbleSeller : styles.chatBubbleUser]}>
+                      <Text style={styles.chatBubbleText}>{msg.text}</Text>
+                    </View>
+                    <Text style={styles.chatBubbleTime}>{msg.time}</Text>
+                  </View>
+                );
+              })}
+            </ScrollView>
+
+            {/* Input Bar */}
+            <View style={styles.chatInputRow}>
+              <TextInput
+                style={styles.chatInput}
+                placeholder="Votre message..."
+                placeholderTextColor="#7891B280"
+                value={chatMessage}
+                onChangeText={setChatMessage}
+              />
+              <Pressable style={styles.chatSendBtn} onPress={handleSendChatMessage}>
+                <Ionicons name="send" size={16} color="#F7FAFF" />
+              </Pressable>
+            </View>
+          </View>
+        </SafeAreaView>
+      </Modal>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#030C16',
+  },
+  ambientGlow: {
+    position: 'absolute',
+    top: -50,
+    right: -20,
+    width: 250,
+    height: 250,
+    borderRadius: 125,
+    backgroundColor: '#2F80ED',
+    opacity: 0.12,
+    shadowColor: '#2F80ED',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.4,
+    shadowRadius: 50,
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 10,
+  },
+  headerLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#7891B2',
+    letterSpacing: 1.5,
+    marginBottom: 4,
+  },
+  headerTitle: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: '#F7FAFF',
+  },
+  headerActions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  actionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#2F80ED',
+    borderColor: '#6EA8FF40',
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+    gap: 6,
+  },
+  actionBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#F7FAFF',
+  },
+  searchBarContainer: {
+    flexDirection: 'row',
+    gap: 10,
+    paddingHorizontal: 20,
+    marginVertical: 10,
+  },
+  searchBox: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#091E3680',
+    borderColor: '#1B5B9F30',
+    borderWidth: 1,
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    height: 46,
+    gap: 8,
+  },
+  searchInput: {
+    flex: 1,
+    color: '#F7FAFF',
+    fontSize: 14,
+  },
+  filterTrigger: {
+    width: 46,
+    height: 46,
+    borderRadius: 14,
+    backgroundColor: '#091E3680',
+    borderColor: '#1B5B9F30',
+    borderWidth: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  categoryScroll: {
+    paddingHorizontal: 20,
+    gap: 8,
+    paddingBottom: 8,
+  },
+  catBadge: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 12,
+    backgroundColor: '#091E36',
+    borderWidth: 1,
+    borderColor: '#1B5B9F30',
+  },
+  catBadgeActive: {
+    backgroundColor: '#2F80ED',
+    borderColor: '#2F80ED',
+  },
+  catText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#7891B2',
+  },
+  catTextActive: {
+    color: '#F7FAFF',
+  },
+  feedScroll: {
+    paddingHorizontal: 16,
+    paddingBottom: 80,
+  },
+  feedRow: {
+    justifyContent: 'space-between',
+  },
+  productCard: {
+    width: '48%',
+    backgroundColor: '#091E3660',
+    borderColor: '#1B5B9F20',
+    borderWidth: 1,
+    borderRadius: 16,
+    marginBottom: 16,
+    overflow: 'hidden',
+  },
+  productImgContainer: {
+    height: 120,
+    backgroundColor: '#0A203E',
+    position: 'relative',
+  },
+  productImg: {
+    width: '100%',
+    height: '100%',
+  },
+  condBadge: {
+    position: 'absolute',
+    top: 8,
+    left: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  condText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#F7FAFF',
+  },
+  favBtn: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(3, 12, 22, 0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  productMeta: {
+    padding: 12,
+    gap: 4,
+  },
+  productPrice: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#ECC863',
+  },
+  productTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#F7FAFF',
+  },
+  locContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 2,
+  },
+  productLoc: {
+    fontSize: 11,
+    color: '#7891B2',
+  },
+  placeholderContainer: {
+    padding: 40,
+    backgroundColor: '#091E3633',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#1B5B9F1A',
+    borderStyle: 'dashed',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+    marginTop: 40,
+    marginHorizontal: 20,
+  },
+  placeholderText: {
+    color: '#7891B2',
+    fontSize: 13,
+    textAlign: 'center',
+  },
+
+  // Slide Overlay Modals
+  slideModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(3, 12, 22, 0.85)',
+    justifyContent: 'flex-end',
+  },
+  slideModalContent: {
+    backgroundColor: '#0B2342',
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+    borderWidth: 1.2,
+    borderColor: '#2F80ED40',
+    maxHeight: '92%',
+    padding: 24,
+    gap: 16,
+  },
+  modalHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: '#1B5B9F2A',
+    paddingBottom: 14,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#F7FAFF',
+  },
+  formContainer: {
+    gap: 14,
+    paddingBottom: 24,
+  },
+  inputGroup: {
+    gap: 6,
+  },
+  inputLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#7891B2',
+  },
+  textInput: {
+    backgroundColor: '#091E36',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#1B5B9F50',
+    color: '#F7FAFF',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 14,
+  },
+  textInputError: {
+    borderColor: '#FF5353',
+  },
+  fieldError: {
+    color: '#FF5353',
+    fontSize: 11,
+    marginTop: 2,
+  },
+  formRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  badgeSelectorRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  badgeSelectorItem: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    backgroundColor: '#091E36',
+    borderWidth: 1,
+    borderColor: '#1B5B9F40',
+  },
+  badgeSelectorItemActive: {
+    backgroundColor: '#2F80ED22',
+    borderColor: '#2F80ED',
+  },
+  badgeSelectorText: {
+    fontSize: 12,
+    color: '#7891B2',
+    fontWeight: '600',
+  },
+  badgeSelectorTextActive: {
+    color: '#2F80ED',
+    fontWeight: '700',
+  },
+  imagesPickerRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  imagePickOption: {
+    flex: 1,
+    flexDirection: 'row',
+    backgroundColor: '#2F80ED15',
+    borderColor: '#2F80ED40',
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 8,
+  },
+  imagePickOptionText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#2F80ED',
+  },
+  previewsScroll: {
+    flexDirection: 'row',
+    marginTop: 8,
+  },
+  previewContainer: {
+    width: 68,
+    height: 68,
+    borderRadius: 8,
+    overflow: 'hidden',
+    position: 'relative',
+    marginRight: 10,
+    backgroundColor: '#071A31',
+    borderWidth: 1,
+    borderColor: '#1B5B9F40',
+  },
+  previewImg: {
+    width: '100%',
+    height: '100%',
+  },
+  removePreviewBtn: {
+    position: 'absolute',
+    top: 2,
+    right: 2,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: '#FF5353',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  rowButtons: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 10,
+    paddingBottom: 10,
+  },
+  buttonCancel: {
+    flex: 1,
+    borderColor: '#1B5B9F60',
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  buttonCancelText: {
+    color: '#7891B2',
+    fontWeight: '600',
+  },
+  buttonSubmit: {
+    flex: 1,
+    backgroundColor: '#2F80ED',
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+  },
+  buttonSubmitText: {
+    color: '#F7FAFF',
+    fontWeight: '700',
+  },
+
+  // Detail Modal Specific
+  detailScroll: {
+    gap: 16,
+    paddingBottom: 40,
+  },
+  detailCarousel: {
+    height: 200,
+    borderRadius: 16,
+    overflow: 'hidden',
+    backgroundColor: '#091E3660',
+  },
+  carouselImg: {
+    width: '100%',
+    height: '100%',
+  },
+  carouselPills: {
+    position: 'absolute',
+    bottom: 12,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  carouselPillActive: {
+    width: 16,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#2F80ED',
+  },
+  priceRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  detailPrice: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: '#ECC863',
+  },
+  detailActionsRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  detailActionBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: '#091E3699',
+    borderColor: '#1B5B9F40',
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  detailSpecsCard: {
+    backgroundColor: '#091E3660',
+    borderColor: '#1B5B9F20',
+    borderWidth: 1,
+    padding: 16,
+    gap: 10,
+  },
+  specRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  specLabel: {
+    fontSize: 13,
+    color: '#7891B2',
+    fontWeight: '500',
+  },
+  specVal: {
+    fontSize: 13,
+    color: '#F7FAFF',
+    fontWeight: '700',
+  },
+  specDivider: {
+    height: 0.5,
+    backgroundColor: '#1B5B9F2A',
+  },
+  descSection: {
+    gap: 6,
+  },
+  descSectionTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#F7FAFF',
+  },
+  descText: {
+    fontSize: 13,
+    color: '#7891B2',
+    lineHeight: 18,
+  },
+  sellerSection: {
+    gap: 8,
+  },
+  sellerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#091E3640',
+    padding: 12,
+    borderRadius: 12,
+    gap: 12,
+    borderWidth: 1,
+    borderColor: '#1B5B9F10',
+  },
+  sellerAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sellerName: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#F7FAFF',
+  },
+  sellerLoc: {
+    fontSize: 11,
+    color: '#7891B2',
+    marginTop: 2,
+  },
+
+  // Filters Modal specific
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(3, 12, 22, 0.85)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: '#0B2342',
+    borderRadius: 24,
+    borderWidth: 1.2,
+    borderColor: '#2F80ED4D',
+    padding: 24,
+    width: '100%',
+    maxWidth: 380,
+    gap: 16,
+  },
+
+  // Messagerie / Chat elements
+  chatTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  chatScroll: {
+    gap: 12,
+    paddingVertical: 10,
+  },
+  chatBubbleContainer: {
+    maxWidth: '80%',
+    marginBottom: 4,
+  },
+  bubbleLeft: {
+    alignSelf: 'flex-start',
+    alignItems: 'flex-start',
+  },
+  bubbleRight: {
+    alignSelf: 'flex-end',
+    alignItems: 'flex-end',
+  },
+  chatBubble: {
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  chatBubbleSeller: {
+    backgroundColor: '#091E36',
+    borderWidth: 1,
+    borderColor: '#1B5B9F30',
+  },
+  chatBubbleUser: {
+    backgroundColor: '#2F80ED',
+  },
+  chatBubbleText: {
+    color: '#F7FAFF',
+    fontSize: 14,
+    lineHeight: 18,
+  },
+  chatBubbleTime: {
+    fontSize: 10,
+    color: '#7891B280',
+    marginTop: 2,
+  },
+  chatInputRow: {
+    flexDirection: 'row',
+    gap: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#1B5B9F2A',
+    paddingTop: 12,
+  },
+  chatInput: {
+    flex: 1,
+    backgroundColor: '#091E36',
+    borderColor: '#1B5B9F50',
+    borderWidth: 1,
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    color: '#F7FAFF',
+    height: 44,
+  },
+  chatSendBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: '#2F80ED',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+});
