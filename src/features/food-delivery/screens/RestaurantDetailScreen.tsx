@@ -6,6 +6,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
     ActivityIndicator,
+    Alert,
     Image,
     Pressable,
     ScrollView,
@@ -58,6 +59,7 @@ export function RestaurantDetailScreen() {
         extras: [],
       },
     );
+    Alert.alert("Article ajouté 🛒", `${item.name} (x${qty}) a été ajouté à votre panier !`);
   };
 
   return (

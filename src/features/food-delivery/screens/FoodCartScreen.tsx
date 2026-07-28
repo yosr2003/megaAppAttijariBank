@@ -209,7 +209,7 @@ export function FoodCartScreen() {
                             { backgroundColor: theme.colors.surfaceElevated },
                           ]}
                           onPress={() =>
-                            updateQuantity(item.menuItemId, item.quantity - 1)
+                            updateQuantity(item.id, item.quantity - 1)
                           }
                         >
                           <Ionicons
@@ -232,7 +232,7 @@ export function FoodCartScreen() {
                             { backgroundColor: theme.colors.primary },
                           ]}
                           onPress={() =>
-                            updateQuantity(item.menuItemId, item.quantity + 1)
+                            updateQuantity(item.id, item.quantity + 1)
                           }
                         >
                           <Ionicons
@@ -247,7 +247,7 @@ export function FoodCartScreen() {
                           styles.removeButton,
                           { backgroundColor: theme.colors.surfaceElevated },
                         ]}
-                        onPress={() => removeItem(item.menuItemId)}
+                        onPress={() => removeItem(item.id)}
                       >
                         <Ionicons
                           name="trash-outline"
