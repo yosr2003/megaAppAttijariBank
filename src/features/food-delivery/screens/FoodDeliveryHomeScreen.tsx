@@ -29,26 +29,36 @@ export function FoodDeliveryHomeScreen() {
   const router = useRouter();
   const theme = useTheme();
   const { getItemCount } = useFoodCartStore();
-  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(
-    null,
-  );
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState<string>("");
 
   const cartCount = getItemCount();
   const aiRecommendation = MOCK_AI_RECOMMENDATIONS[0];
 
-  const filteredRestaurants = selectedCategoryId
-    ? MOCK_RESTAURANTS.filter((r) =>
-        r.cuisineTypes.some((ct) =>
-          ct
-            .toLowerCase()
-            .includes(
-              CATEGORIES.find(
-                (c) => c.id === selectedCategoryId,
-              )?.name.toLowerCase() || "",
-            ),
-        ),
-      )
-    : MOCK_RESTAURANTS;
+  const selectedCategoryObj = CATEGORIES.find((c) => c.id === selectedCategoryId);
+
+  const filteredRestaurants = MOCK_RESTAURANTS.filter((r) => {
+    // 1. Category match
+    let matchesCategory = true;
+    if (selectedCategoryObj) {
+      const targetName = selectedCategoryObj.name.toLowerCase();
+      matchesCategory = r.cuisineTypes.some((ct) =>
+        ct.toLowerCase().includes(targetName)
+      );
+    }
+
+    // 2. Search match
+    let matchesSearch = true;
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      matchesSearch =
+        r.name.toLowerCase().includes(q) ||
+        r.cuisineTypes.some((ct) => ct.toLowerCase().includes(q)) ||
+        (r.tags && r.tags.some((t) => t.toLowerCase().includes(q)));
+    }
+
+    return matchesCategory && matchesSearch;
+  });
 
   return (
     <Screen style={{ paddingHorizontal: 0 }}>
@@ -134,7 +144,11 @@ export function FoodDeliveryHomeScreen() {
         >
           {/* Search Bar */}
           <View style={{ paddingHorizontal: theme.spacing.md }}>
-            <SearchBar placeholder="What do you want to eat?" />
+            <SearchBar
+              placeholder="Rechercher un restaurant ou un plat..."
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+            />
           </View>
 
           {/* AI Recommendation Card */}
@@ -293,15 +307,31 @@ export function FoodDeliveryHomeScreen() {
           {/* Popular Restaurants */}
           <View style={{ paddingHorizontal: theme.spacing.md }}>
             <View style={styles.restaurantsHeader}>
-              <SectionTitle>Populaires près de vous</SectionTitle>
-              <Pressable>
-                <Text
-                  style={[styles.seeAllText, { color: theme.colors.primary }]}
-                >
-                  Voir tout
-                </Text>
-              </Pressable>
+              <SectionTitle>
+                {selectedCategoryObj
+                  ? `Restaurants ${selectedCategoryObj.name}`
+                  : "Populaires près de vous"}
+              </SectionTitle>
+              {selectedCategoryId && (
+                <Pressable onPress={() => setSelectedCategoryId(null)}>
+                  <Text style={[styles.seeAllText, { color: "#FFC244" }]}>
+                    Réinitialiser
+                  </Text>
+                </Pressable>
+              )}
             </View>
+
+            {filteredRestaurants.length === 0 && (
+              <GlassCard style={{ padding: 30, alignItems: "center", marginVertical: 10 }}>
+                <Ionicons name="restaurant-outline" size={44} color={theme.colors.textSecondary} style={{ marginBottom: 10 }} />
+                <Text style={{ color: theme.colors.textPrimary, fontSize: 16, fontWeight: "700", marginBottom: 4 }}>
+                  Aucun restaurant trouvé
+                </Text>
+                <Text style={{ color: theme.colors.textSecondary, textAlign: "center", fontSize: 13 }}>
+                  Essayez une autre catégorie ou modifiez votre recherche.
+                </Text>
+              </GlassCard>
+            )}
             {filteredRestaurants.map((restaurant) => (
               <Pressable
                 key={restaurant.id}

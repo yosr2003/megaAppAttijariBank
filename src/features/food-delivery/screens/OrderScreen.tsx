@@ -17,6 +17,7 @@ import { MOCK_ADDRESSES } from "../mocks";
 import { dbService, WalletCard } from "@/src/services/db-service";
 import { TEST_USER_ID } from "@/src/hooks/use-db";
 import { FaceIdModal } from "../components/FaceIdModal";
+import { DeliverySchedulerModal } from "../components/DeliverySchedulerModal";
 
 type PaymentMethod = "wallet" | "card" | "cash";
 type DeliveryTimeMode = "now" | "schedule";
@@ -32,7 +33,8 @@ export function OrderScreen() {
     MOCK_ADDRESSES.find((a) => a.isDefault)?.id || MOCK_ADDRESSES[0].id,
   );
   const [deliveryTimeMode, setDeliveryTimeMode] = useState<DeliveryTimeMode>("now");
-  const [scheduledTime, setScheduledTime] = useState("Aujourd'hui · 20:30");
+  const [scheduledTime, setScheduledTime] = useState("Aujourd'hui à 20:30");
+  const [isSchedulerVisible, setIsSchedulerVisible] = useState(false);
 
   // Payment State
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("wallet");
@@ -257,7 +259,10 @@ export function OrderScreen() {
                   deliveryTimeMode === "schedule" && styles.timeTabActive,
                   { backgroundColor: theme.colors.surface },
                 ]}
-                onPress={() => setDeliveryTimeMode("schedule")}
+                onPress={() => {
+                  setDeliveryTimeMode("schedule");
+                  setIsSchedulerVisible(true);
+                }}
               >
                 <Ionicons
                   name="calendar-outline"
@@ -270,10 +275,35 @@ export function OrderScreen() {
                     { color: deliveryTimeMode === "schedule" ? "#000000" : theme.colors.textSecondary },
                   ]}
                 >
-                  Planifier
+                  {deliveryTimeMode === "schedule" ? scheduledTime : "Planifier"}
                 </Text>
               </Pressable>
             </View>
+
+            {deliveryTimeMode === "schedule" && (
+              <Pressable
+                style={{
+                  marginTop: 10,
+                  backgroundColor: "#FFC24420",
+                  borderColor: "#FFC244",
+                  borderWidth: 1,
+                  padding: 12,
+                  borderRadius: 16,
+                  flexDirection: "row",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                }}
+                onPress={() => setIsSchedulerVisible(true)}
+              >
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                  <Ionicons name="calendar-sharp" size={20} color="#FFC244" />
+                  <Text style={{ color: theme.colors.textPrimary, fontWeight: "700", fontSize: 14 }}>
+                    Livraison prévue : {scheduledTime}
+                  </Text>
+                </View>
+                <Text style={{ color: "#FFC244", fontWeight: "800", fontSize: 13 }}>Modifier</Text>
+              </Pressable>
+            )}
           </View>
 
           {/* 3. Payment Method Selection */}
@@ -459,6 +489,17 @@ export function OrderScreen() {
           }
           onSuccess={handleFaceIdSuccess}
           onCancel={() => setIsFaceIdVisible(false)}
+        />
+        {/* Delivery Time Scheduler Modal */}
+        <DeliverySchedulerModal
+          visible={isSchedulerVisible}
+          currentScheduleText={scheduledTime}
+          onConfirm={(text) => {
+            setScheduledTime(text);
+            setDeliveryTimeMode("schedule");
+            setIsSchedulerVisible(false);
+          }}
+          onClose={() => setIsSchedulerVisible(false)}
         />
       </SafeAreaView>
     </Screen>

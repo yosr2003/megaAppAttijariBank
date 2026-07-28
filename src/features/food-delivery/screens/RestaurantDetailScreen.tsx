@@ -3,16 +3,17 @@ import { useTheme } from "@/src/hooks/use-theme";
 import { useFoodCartStore } from "@/src/store/food-cart-store";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import {
-    ActivityIndicator,
-    Alert,
-    Image,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    Text,
-    View,
+  ActivityIndicator,
+  Alert,
+  Image,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MOCK_RESTAURANTS } from "../mocks";
@@ -23,13 +24,47 @@ export function RestaurantDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const theme = useTheme();
   const { addItem, getItemCount, getTotal } = useFoodCartStore();
+  
   const [quantities, setQuantities] = useState<Record<string, number>>({});
+  const [selectedMenuCategory, setSelectedMenuCategory] = useState<string>("Tous");
+  const [searchQuery, setSearchQuery] = useState<string>("");
 
   const restaurant =
     MOCK_RESTAURANTS.find((r) => r.id === id) || MOCK_RESTAURANTS[0];
   const { foodItems, isLoading, error } = useRestaurantMenu(restaurant);
   const itemCount = getItemCount();
   const total = getTotal();
+
+  // Extract all distinct menu categories for this restaurant
+  const categoriesList = useMemo(() => {
+    if (!foodItems || foodItems.length === 0) return ["Tous"];
+    const cats = Array.from(new Set(foodItems.map((item) => item.category)));
+    return ["Tous", "🔥 Populaires", ...cats];
+  }, [foodItems]);
+
+  // Filter items based on active category & search query
+  const filteredFoodItems = useMemo(() => {
+    return foodItems.filter((item) => {
+      // Category match
+      let matchesCat = true;
+      if (selectedMenuCategory === "🔥 Populaires") {
+        matchesCat = item.isPopular;
+      } else if (selectedMenuCategory !== "Tous") {
+        matchesCat = item.category === selectedMenuCategory;
+      }
+
+      // Search match
+      let matchesSearch = true;
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase().trim();
+        matchesSearch =
+          item.name.toLowerCase().includes(q) ||
+          item.description.toLowerCase().includes(q);
+      }
+
+      return matchesCat && matchesSearch;
+    });
+  }, [foodItems, selectedMenuCategory, searchQuery]);
 
   const getQuantity = (itemId: string) => quantities[itemId] || 1;
 
@@ -65,9 +100,8 @@ export function RestaurantDetailScreen() {
   return (
     <Screen style={{ paddingHorizontal: 0 }}>
       <SafeAreaView edges={["top"]} style={{ flex: 1 }}>
-        <View
-          style={[styles.header, { backgroundColor: theme.colors.surface }]}
-        >
+        {/* Top Navigation Bar */}
+        <View style={[styles.header, { backgroundColor: theme.colors.surface }]}>
           <Pressable
             style={[
               styles.backButton,
@@ -81,6 +115,9 @@ export function RestaurantDetailScreen() {
               color={theme.colors.textPrimary}
             />
           </Pressable>
+          <Text style={[styles.headerTitle, { color: theme.colors.textPrimary }]} numberOfLines={1}>
+            {restaurant.name}
+          </Text>
           <View style={styles.headerRight}>
             <Pressable
               style={[
@@ -90,7 +127,7 @@ export function RestaurantDetailScreen() {
             >
               <Ionicons
                 name="heart-outline"
-                size={24}
+                size={22}
                 color={theme.colors.textPrimary}
               />
             </Pressable>
@@ -102,7 +139,7 @@ export function RestaurantDetailScreen() {
             >
               <Ionicons
                 name="share-outline"
-                size={24}
+                size={22}
                 color={theme.colors.textPrimary}
               />
             </Pressable>
@@ -113,13 +150,8 @@ export function RestaurantDetailScreen() {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scrollContent}
         >
-          {/* Restaurant Header Image */}
-          <View
-            style={{
-              paddingHorizontal: theme.spacing.md,
-              marginBottom: theme.spacing.md,
-            }}
-          >
+          {/* Cover Banner */}
+          <View style={{ paddingHorizontal: theme.spacing.md, marginBottom: theme.spacing.md }}>
             <View style={styles.restaurantImageContainer}>
               <Image
                 source={{ uri: restaurant.coverImage }}
@@ -127,20 +159,18 @@ export function RestaurantDetailScreen() {
               />
               {restaurant.tags && restaurant.tags.length > 0 && (
                 <View style={styles.tagsContainer}>
-                  {restaurant.tags.slice(0, 2).map((tag, index) => (
+                  {restaurant.tags.map((tag, index) => (
                     <View
                       key={index}
                       style={[
                         styles.tag,
                         {
                           backgroundColor:
-                            index === 0
-                              ? theme.colors.primary
-                              : theme.colors.danger,
+                            index === 0 ? "#FFC244" : "#00A082",
                         },
                       ]}
                     >
-                      <Text style={styles.tagText}>{tag}</Text>
+                      <Text style={[styles.tagText, { color: index === 0 ? "#000" : "#FFF" }]}>{tag}</Text>
                     </View>
                   ))}
                 </View>
@@ -148,93 +178,42 @@ export function RestaurantDetailScreen() {
             </View>
           </View>
 
-          {/* Restaurant Info */}
-          <View
-            style={{
-              paddingHorizontal: theme.spacing.md,
-              marginBottom: theme.spacing.md,
-            }}
-          >
+          {/* Restaurant Card Details */}
+          <View style={{ paddingHorizontal: theme.spacing.md, marginBottom: theme.spacing.md }}>
             <GlassCard style={{ padding: theme.spacing.lg }}>
               <View style={styles.restaurantTopRow}>
-                <Text
-                  style={[
-                    styles.restaurantName,
-                    { color: theme.colors.textPrimary },
-                  ]}
-                >
+                <Text style={[styles.restaurantName, { color: theme.colors.textPrimary }]}>
                   {restaurant.name}
                 </Text>
-                <View
-                  style={[
-                    styles.ratingBadge,
-                    { backgroundColor: theme.colors.surfaceElevated },
-                  ]}
-                >
-                  <Ionicons
-                    name="star"
-                    size={16}
-                    color={theme.colors.primary}
-                    style={{ marginRight: 4 }}
-                  />
-                  <Text
-                    style={[
-                      styles.ratingText,
-                      { color: theme.colors.textPrimary },
-                    ]}
-                  >
+                <View style={[styles.ratingBadge, { backgroundColor: "#FFC24420" }]}>
+                  <Ionicons name="star" size={16} color="#FFC244" style={{ marginRight: 4 }} />
+                  <Text style={[styles.ratingText, { color: theme.colors.textPrimary }]}>
                     {restaurant.rating}
                   </Text>
                 </View>
               </View>
               <View style={styles.restaurantDetailsRow}>
-                <Ionicons
-                  name="time-outline"
-                  size={16}
-                  color={theme.colors.textSecondary}
-                />
-                <Text
-                  style={[
-                    styles.detailText,
-                    { color: theme.colors.textSecondary },
-                  ]}
-                >
+                <Ionicons name="time-outline" size={16} color={theme.colors.textSecondary} />
+                <Text style={[styles.detailText, { color: theme.colors.textSecondary }]}>
                   {restaurant.deliveryTime} min
                 </Text>
-                <View
-                  style={[styles.dot, { backgroundColor: theme.colors.border }]}
-                />
-                <Ionicons
-                  name="bicycle-outline"
-                  size={16}
-                  color={theme.colors.textSecondary}
-                />
-                <Text
-                  style={[
-                    styles.detailText,
-                    { color: theme.colors.textSecondary },
-                  ]}
-                >
-                  {restaurant.deliveryFee > 0
-                    ? `${restaurant.deliveryFee.toFixed(3)} TND`
-                    : "Gratuite"}
+                <View style={[styles.dot, { backgroundColor: theme.colors.border }]} />
+                <Ionicons name="bicycle-outline" size={16} color={theme.colors.textSecondary} />
+                <Text style={[styles.detailText, { color: theme.colors.textSecondary }]}>
+                  {restaurant.deliveryFee > 0 ? `${restaurant.deliveryFee.toFixed(3)} TND` : "Gratuite"}
+                </Text>
+                <View style={[styles.dot, { backgroundColor: theme.colors.border }]} />
+                <Text style={[styles.detailText, { color: theme.colors.textSecondary }]}>
+                  Min. {restaurant.minOrder.toFixed(3)} TND
                 </Text>
               </View>
               <View style={styles.cuisineTags}>
                 {restaurant.cuisineTypes.map((cuisine, idx) => (
                   <View
                     key={idx}
-                    style={[
-                      styles.cuisineTag,
-                      { backgroundColor: theme.colors.surfaceElevated },
-                    ]}
+                    style={[styles.cuisineTag, { backgroundColor: theme.colors.surfaceElevated }]}
                   >
-                    <Text
-                      style={[
-                        styles.cuisineTagText,
-                        { color: theme.colors.textSecondary },
-                      ]}
-                    >
+                    <Text style={[styles.cuisineTagText, { color: theme.colors.textSecondary }]}>
                       {cuisine}
                     </Text>
                   </View>
@@ -243,19 +222,70 @@ export function RestaurantDetailScreen() {
             </GlassCard>
           </View>
 
-          {/* Menu */}
-          <View
-            style={{
-              paddingHorizontal: theme.spacing.md,
-              marginBottom: theme.spacing.lg,
-            }}
-          >
-            <SectionTitle>Menu</SectionTitle>
+          {/* Menu Search Bar */}
+          <View style={{ paddingHorizontal: theme.spacing.md, marginBottom: theme.spacing.sm }}>
+            <View style={[styles.searchContainer, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
+              <Ionicons name="search-outline" size={20} color={theme.colors.textSecondary} style={{ marginRight: 10 }} />
+              <TextInput
+                style={[styles.searchInput, { color: theme.colors.textPrimary }]}
+                placeholder={`Rechercher chez ${restaurant.name}...`}
+                placeholderTextColor={theme.colors.textSecondary}
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+              />
+              {Boolean(searchQuery) && (
+                <Pressable onPress={() => setSearchQuery("")}>
+                  <Ionicons name="close-circle" size={18} color={theme.colors.textSecondary} />
+                </Pressable>
+              )}
+            </View>
+          </View>
+
+          {/* Menu Category Filter Tabs */}
+          <View style={{ marginBottom: theme.spacing.md }}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.categoryTabsScroll}
+            >
+              {categoriesList.map((catName) => {
+                const isActive = selectedMenuCategory === catName;
+                return (
+                  <Pressable
+                    key={catName}
+                    style={[
+                      styles.categoryTab,
+                      {
+                        backgroundColor: isActive ? "#FFC244" : theme.colors.surface,
+                        borderColor: isActive ? "#FFC244" : theme.colors.border,
+                      },
+                    ]}
+                    onPress={() => setSelectedMenuCategory(catName)}
+                  >
+                    <Text
+                      style={[
+                        styles.categoryTabText,
+                        { color: isActive ? "#000000" : theme.colors.textSecondary },
+                      ]}
+                    >
+                      {catName}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          </View>
+
+          {/* Menu Items List */}
+          <View style={{ paddingHorizontal: theme.spacing.md, marginBottom: theme.spacing.lg }}>
+            <SectionTitle>
+              {selectedMenuCategory === "Tous" ? "Menu Complet" : selectedMenuCategory}
+            </SectionTitle>
             
             {isLoading && (
               <View style={{ padding: 40, alignItems: 'center' }}>
-                <ActivityIndicator size="large" color={theme.colors.primary} />
-                <Text style={{ marginTop: 10, color: theme.colors.textSecondary }}>Loading delicious meals...</Text>
+                <ActivityIndicator size="large" color="#FFC244" />
+                <Text style={{ marginTop: 10, color: theme.colors.textSecondary }}>Préparation du menu savoureux...</Text>
               </View>
             )}
 
@@ -265,107 +295,64 @@ export function RestaurantDetailScreen() {
               </View>
             )}
 
-            {!isLoading && !error && foodItems.length === 0 && (
-              <View style={{ padding: 20, alignItems: 'center' }}>
-                <Text style={{ color: theme.colors.textSecondary, textAlign: 'center' }}>No menu items available.</Text>
-              </View>
+            {!isLoading && !error && filteredFoodItems.length === 0 && (
+              <GlassCard style={{ padding: 30, alignItems: 'center' }}>
+                <Ionicons name="fast-food-outline" size={40} color={theme.colors.textSecondary} style={{ marginBottom: 8 }} />
+                <Text style={{ color: theme.colors.textPrimary, fontSize: 16, fontWeight: '700', marginBottom: 4 }}>
+                  Aucun article trouvé
+                </Text>
+                <Text style={{ color: theme.colors.textSecondary, textAlign: 'center', fontSize: 13 }}>
+                  Essayez un autre mot-clé ou sélectionnez une autre catégorie.
+                </Text>
+              </GlassCard>
             )}
 
-            {!isLoading && foodItems.map((item) => (
+            {!isLoading && filteredFoodItems.map((item) => (
               <View key={item.id} style={{ marginBottom: theme.spacing.md }}>
                 <GlassCard style={{ padding: theme.spacing.md }}>
                   <View style={styles.menuItem}>
                     <View style={styles.menuItemInfo}>
                       {item.isPopular && (
-                        <View
-                          style={[
-                            styles.popularBadge,
-                            { backgroundColor: theme.colors.danger },
-                          ]}
-                        >
-                          <Text style={styles.popularText}>Populaire</Text>
+                        <View style={styles.popularBadge}>
+                          <Text style={styles.popularText}>🔥 Populaires</Text>
                         </View>
                       )}
-                      <Text
-                        style={[
-                          styles.itemName,
-                          { color: theme.colors.textPrimary },
-                        ]}
-                      >
+                      <Text style={[styles.itemName, { color: theme.colors.textPrimary }]}>
                         {item.name}
                       </Text>
-                      <Text
-                        style={[
-                          styles.itemDescription,
-                          { color: theme.colors.textSecondary },
-                        ]}
-                      >
+                      <Text style={[styles.itemDescription, { color: theme.colors.textSecondary }]}>
                         {item.description}
                       </Text>
-                      <Text
-                        style={[
-                          styles.itemPrice,
-                          { color: theme.colors.primary },
-                        ]}
-                      >
+                      <Text style={[styles.itemPrice, { color: "#FFC244" }]}>
                         {item.price.toFixed(3)} TND
                       </Text>
                     </View>
                     <View style={styles.itemActions}>
-                      {item.image && (
-                        <Image
-                          source={{ uri: item.image }}
-                          style={styles.itemImage}
-                        />
+                      {Boolean(item.image) && (
+                        <Image source={{ uri: item.image }} style={styles.itemImage} />
                       )}
                       <View style={styles.quantityControls}>
                         <Pressable
-                          style={[
-                            styles.quantityButton,
-                            { backgroundColor: theme.colors.surfaceElevated },
-                          ]}
+                          style={[styles.quantityButton, { backgroundColor: theme.colors.surfaceElevated }]}
                           onPress={() => updateQuantity(item.id, -1)}
                         >
-                          <Ionicons
-                            name="remove"
-                            size={16}
-                            color={theme.colors.textPrimary}
-                          />
+                          <Ionicons name="remove" size={16} color={theme.colors.textPrimary} />
                         </Pressable>
-                        <Text
-                          style={[
-                            styles.quantityText,
-                            { color: theme.colors.textPrimary },
-                          ]}
-                        >
+                        <Text style={[styles.quantityText, { color: theme.colors.textPrimary }]}>
                           {getQuantity(item.id)}
                         </Text>
                         <Pressable
-                          style={[
-                            styles.quantityButton,
-                            { backgroundColor: "#FFC244" },
-                          ]}
+                          style={[styles.quantityButton, { backgroundColor: "#FFC244" }]}
                           onPress={() => updateQuantity(item.id, 1)}
                         >
-                          <Ionicons
-                            name="add"
-                            size={16}
-                            color="#000000"
-                          />
+                          <Ionicons name="add" size={16} color="#000000" />
                         </Pressable>
                       </View>
                       <Pressable
-                        style={[
-                          styles.addButton,
-                          { backgroundColor: "#FFC244" },
-                        ]}
+                        style={[styles.addButton, { backgroundColor: "#FFC244" }]}
                         onPress={() => handleAddItem(item)}
                       >
-                        <Ionicons
-                          name="cart"
-                          size={20}
-                          color="#000000"
-                        />
+                        <Ionicons name="cart" size={20} color="#000000" />
                       </Pressable>
                     </View>
                   </View>
@@ -379,39 +366,16 @@ export function RestaurantDetailScreen() {
         {itemCount > 0 && (
           <View style={styles.cartContainer}>
             <Pressable
-              style={[
-                styles.cartButton,
-                { backgroundColor: "#FFC244" },
-              ]}
+              style={[styles.cartButton, { backgroundColor: "#FFC244" }]}
               onPress={() => router.push("/food-delivery/cart" as any)}
             >
               <View style={styles.cartInfo}>
-                <View
-                  style={[
-                    styles.cartCountBadge,
-                    { backgroundColor: "#000000" },
-                  ]}
-                >
-                  <Text
-                    style={[styles.cartCount, { color: "#FFC244" }]}
-                  >
-                    {itemCount}
-                  </Text>
+                <View style={[styles.cartCountBadge, { backgroundColor: "#000000" }]}>
+                  <Text style={[styles.cartCount, { color: "#FFC244" }]}>{itemCount}</Text>
                 </View>
-                <Text
-                  style={[
-                    styles.cartButtonText,
-                    { color: "#000000" },
-                  ]}
-                >
-                  Voir le panier
-                </Text>
+                <Text style={[styles.cartButtonText, { color: "#000000" }]}>Voir le panier</Text>
               </View>
-              <Text
-                style={[styles.cartTotal, { color: "#000000" }]}
-              >
-                {total.toFixed(3)} TND
-              </Text>
+              <Text style={[styles.cartTotal, { color: "#000000" }]}>{total.toFixed(3)} TND</Text>
             </Pressable>
           </View>
         )}
@@ -426,23 +390,30 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingVertical: 14,
   },
   backButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     justifyContent: "center",
     alignItems: "center",
   },
+  headerTitle: {
+    fontSize: 17,
+    fontWeight: "800",
+    flex: 1,
+    textAlign: "center",
+    marginHorizontal: 8,
+  },
   headerRight: {
     flexDirection: "row",
-    gap: 12,
+    gap: 8,
   },
   headerButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     justifyContent: "center",
     alignItems: "center",
   },
@@ -456,7 +427,7 @@ const styles = StyleSheet.create({
   },
   restaurantImage: {
     width: "100%",
-    height: 220,
+    height: 200,
   },
   tagsContainer: {
     position: "absolute",
@@ -466,12 +437,11 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   tag: {
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 14,
   },
   tagText: {
-    color: "#fff",
     fontSize: 11,
     fontWeight: "700",
   },
@@ -484,26 +454,28 @@ const styles = StyleSheet.create({
   restaurantName: {
     fontSize: 22,
     fontWeight: "800",
+    flex: 1,
   },
   ratingBadge: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 16,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 14,
   },
   ratingText: {
     fontSize: 14,
-    fontWeight: "700",
+    fontWeight: "800",
   },
   restaurantDetailsRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
     marginBottom: 12,
+    flexWrap: "wrap",
   },
   detailText: {
-    fontSize: 15,
+    fontSize: 13,
     fontWeight: "500",
   },
   dot: {
@@ -522,48 +494,77 @@ const styles = StyleSheet.create({
     borderRadius: 16,
   },
   cuisineTagText: {
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  searchContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderWidth: 1,
+    borderRadius: 18,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 14,
+  },
+  categoryTabsScroll: {
+    paddingHorizontal: 20,
+    gap: 8,
+  },
+  categoryTab: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  categoryTabText: {
     fontSize: 13,
-    fontWeight: "500",
+    fontWeight: "700",
   },
   menuItem: {
     flexDirection: "row",
+    gap: 12,
   },
   menuItemInfo: {
     flex: 1,
   },
   popularBadge: {
     alignSelf: "flex-start",
+    backgroundColor: "#FF3B30",
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 12,
-    marginBottom: 8,
+    marginBottom: 6,
   },
   popularText: {
-    color: "#fff",
-    fontSize: 11,
-    fontWeight: "bold",
+    color: "#FFF",
+    fontSize: 10,
+    fontWeight: "800",
   },
   itemName: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: "700",
     marginBottom: 4,
   },
   itemDescription: {
-    fontSize: 14,
+    fontSize: 13,
+    lineHeight: 18,
     marginBottom: 8,
   },
   itemPrice: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: "800",
   },
   itemActions: {
     alignItems: "center",
-    gap: 12,
+    gap: 10,
   },
   itemImage: {
-    width: 80,
-    height: 80,
-    borderRadius: 16,
+    width: 75,
+    height: 75,
+    borderRadius: 14,
   },
   quantityControls: {
     flexDirection: "row",
@@ -571,22 +572,22 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   quantityButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     justifyContent: "center",
     alignItems: "center",
   },
   quantityText: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: "700",
-    minWidth: 24,
+    minWidth: 20,
     textAlign: "center",
   },
   addButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     justifyContent: "center",
     alignItems: "center",
   },
@@ -628,7 +629,7 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   cartTotal: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: "800",
   },
 });
