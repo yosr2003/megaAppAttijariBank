@@ -5,6 +5,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
+    ActivityIndicator,
     Image,
     Pressable,
     ScrollView,
@@ -13,7 +14,8 @@ import {
     View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { MOCK_FOOD_ITEMS, MOCK_RESTAURANTS } from "../mocks";
+import { MOCK_RESTAURANTS } from "../mocks";
+import { useRestaurantMenu } from "../hooks/use-restaurant-menu";
 
 export function RestaurantDetailScreen() {
   const router = useRouter();
@@ -24,7 +26,7 @@ export function RestaurantDetailScreen() {
 
   const restaurant =
     MOCK_RESTAURANTS.find((r) => r.id === id) || MOCK_RESTAURANTS[0];
-  const foodItems = MOCK_FOOD_ITEMS[restaurant.id] || [];
+  const { foodItems, isLoading, error } = useRestaurantMenu(restaurant);
   const itemCount = getItemCount();
   const total = getTotal();
 
@@ -247,7 +249,27 @@ export function RestaurantDetailScreen() {
             }}
           >
             <SectionTitle>Menu</SectionTitle>
-            {foodItems.map((item) => (
+            
+            {isLoading && (
+              <View style={{ padding: 40, alignItems: 'center' }}>
+                <ActivityIndicator size="large" color={theme.colors.primary} />
+                <Text style={{ marginTop: 10, color: theme.colors.textSecondary }}>Loading delicious meals...</Text>
+              </View>
+            )}
+
+            {error && (
+              <View style={{ padding: 20, alignItems: 'center' }}>
+                <Text style={{ color: theme.colors.danger, textAlign: 'center' }}>{error}</Text>
+              </View>
+            )}
+
+            {!isLoading && !error && foodItems.length === 0 && (
+              <View style={{ padding: 20, alignItems: 'center' }}>
+                <Text style={{ color: theme.colors.textSecondary, textAlign: 'center' }}>No menu items available.</Text>
+              </View>
+            )}
+
+            {!isLoading && foodItems.map((item) => (
               <View key={item.id} style={{ marginBottom: theme.spacing.md }}>
                 <GlassCard style={{ padding: theme.spacing.md }}>
                   <View style={styles.menuItem}>
