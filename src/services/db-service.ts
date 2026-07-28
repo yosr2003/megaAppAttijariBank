@@ -1,13 +1,47 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export interface WalletCard { id?: string; user_id: string; card_number: string; cardholder_name: string; expiry_date: string; card_type: 'Platinum' | 'Gold' | 'Virtual'; status: 'active' | 'inactive'; balance: number; created_at?: string; }
-export interface WalletTransaction { id?: string; user_id: string; card_id?: string | null; title: string; category: string; amount: number; currency: string; icon?: string; transaction_date?: string; }
+export interface WalletTransaction { id?: string; user_id: string; card_id?: string | null; title: string; category: string; amount: number; currency: string; icon?: string; transaction_date?: string; receipt_data?: string; }
 export interface WalletDocument { id?: string; user_id: string; title: string; subtitle?: string | null; status: 'Verified' | 'Pending' | 'Rejected'; icon?: string; image_url?: string | null; created_at?: string; }
 export interface SavingsGoal { id?: string; user_id: string; title: string; goal_amount: number; current_amount: number; created_at?: string; }
 export interface MarketplaceItem { id: string; title: string; description?: string; price_text: string; price_amount: number; icon?: string; created_at?: string; }
 export interface MarketplaceSubscription { id?: string; user_id: string; item_id: string; status: 'Active' | 'Cancelled' | 'Expired'; start_date?: string; end_date?: string | null; marketplace_items?: MarketplaceItem; }
 export interface P2PProduct { id?: string; user_id: string; title: string; description?: string | null; category: string; price: number; condition: 'New' | 'Used'; location: string; contact_info: string; images: string[]; created_at?: string; }
 export interface P2PFavorite { id?: string; user_id: string; product_id: string; created_at?: string; p2p_products?: P2PProduct; }
+
+export interface DbOrder {
+  id: string;
+  user_id: string;
+  restaurant_name: string;
+  delivery_address: string;
+  delivery_time: string;
+  subtotal: number;
+  delivery_fee: number;
+  discount: number;
+  total: number;
+  payment_method: 'WALLET' | 'CARD' | 'CASH';
+  card_used_title?: string;
+  status: 'CONFIRMED' | 'PREPARING' | 'PICKED_UP' | 'ON_THE_WAY' | 'DELIVERED';
+  created_at: string;
+}
+
+export interface DbOrderItem {
+  id: string;
+  order_id: string;
+  name: string;
+  quantity: number;
+  price: number;
+}
+
+export interface DbPayment {
+  id: string;
+  order_id: string;
+  card_id?: string;
+  payment_method: 'WALLET' | 'CARD' | 'CASH';
+  amount: number;
+  status: 'COMPLETED' | 'FAILED';
+  created_at: string;
+}
 
 interface LocalDatabase {
   cards: WalletCard[];
@@ -18,10 +52,13 @@ interface LocalDatabase {
   subscriptions: MarketplaceSubscription[];
   p2pProducts: P2PProduct[];
   p2pFavorites: P2PFavorite[];
+  orders: DbOrder[];
+  orderItems: DbOrderItem[];
+  payments: DbPayment[];
 }
 
 const STORAGE_KEY = '@supertounsii/local-database';
-const emptyDatabase = (): LocalDatabase => ({ cards: [], transactions: [], documents: [], savingsGoals: [], marketplaceItems: [], subscriptions: [], p2pProducts: [], p2pFavorites: [] });
+const emptyDatabase = (): LocalDatabase => ({ cards: [], transactions: [], documents: [], savingsGoals: [], marketplaceItems: [], subscriptions: [], p2pProducts: [], p2pFavorites: [], orders: [], orderItems: [], payments: [] });
 const id = () => `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 const now = () => new Date().toISOString();
 
@@ -61,4 +98,69 @@ export const dbService = {
   async getP2PFavorites(userId: string) { const db = await readDatabase(); return db.p2pFavorites.filter((favorite) => favorite.user_id === userId).map((favorite) => ({ ...favorite, p2p_products: db.p2pProducts.find((product) => product.id === favorite.product_id) })); },
   async addP2PFavorite(userId: string, productId: string) { return updateDatabase((db) => { const created: P2PFavorite = { id: id(), user_id: userId, product_id: productId, created_at: now() }; db.p2pFavorites.unshift(created); return created; }); },
   async removeP2PFavorite(userId: string, productId: string) { await updateDatabase((db) => { db.p2pFavorites = db.p2pFavorites.filter((favorite) => favorite.user_id !== userId || favorite.product_id !== productId); }); },
+  
+  // Orders & Payment persistence
+  async createOrderWithPayment(order: Omit<DbOrder, 'id' | 'created_at'>, items: { name: string; quantity: number; price: number }[], payment: { card_id?: string; payment_method: 'WALLET' | 'CARD' | 'CASH'; amount: number }) {
+    return updateDatabase((db) => {
+      const orderId = id();
+      const createdOrder: DbOrder = { ...order, id: orderId, created_at: now() };
+      db.orders.unshift(createdOrder);
+
+      const createdItems: DbOrderItem[] = items.map((item) => ({
+        id: id(),
+        order_id: orderId,
+        name: item.name,
+        quantity: item.quantity,
+        price: item.price,
+      }));
+      db.orderItems.push(...createdItems);
+
+      const createdPayment: DbPayment = {
+        id: id(),
+        order_id: orderId,
+        card_id: payment.card_id,
+        payment_method: payment.payment_method,
+        amount: payment.amount,
+        status: 'COMPLETED',
+        created_at: now(),
+      };
+      db.payments.unshift(createdPayment);
+
+      // Save Transaction in Wallet with Receipt JSON snapshot
+      const receiptData = JSON.stringify({
+        orderId,
+        restaurantName: order.restaurant_name,
+        deliveryAddress: order.delivery_address,
+        deliveryTime: order.delivery_time,
+        items,
+        subtotal: order.subtotal,
+        deliveryFee: order.delivery_fee,
+        discount: order.discount,
+        total: order.total,
+        paymentMethod: payment.payment_method,
+        cardUsedTitle: order.card_used_title,
+      });
+
+      const createdTx: WalletTransaction = {
+        id: id(),
+        user_id: order.user_id,
+        card_id: payment.card_id || null,
+        title: order.restaurant_name,
+        category: 'Food & drink',
+        amount: -payment.amount,
+        currency: 'TND',
+        icon: 'fast-food-outline',
+        transaction_date: now(),
+        receipt_data: receiptData,
+      };
+      db.transactions.unshift(createdTx);
+
+      return { order: createdOrder, payment: createdPayment, transaction: createdTx };
+    });
+  },
+  async getLatestOrder(userId: string) {
+    const db = await readDatabase();
+    return db.orders.filter((o) => o.user_id === userId)[0] || null;
+  }
 };
+

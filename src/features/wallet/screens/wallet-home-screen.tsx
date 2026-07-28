@@ -14,6 +14,7 @@ import { useFormValidation } from '@/src/hooks/use-form-validation';
 import { dbService, WalletCard, WalletTransaction, WalletDocument } from '@/src/services/db-service';
 import { useTheme } from '@/src/hooks/use-theme';
 import { format, V } from '@/src/utils/form-validation';
+import { WalletReceiptModal, ReceiptDetails } from '../components/WalletReceiptModal';
 
 export function WalletHomeScreen() {
   const router = useRouter();
@@ -28,6 +29,7 @@ export function WalletHomeScreen() {
   const [cards, setCards] = useState<WalletCard[]>([]);
   const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
   const [documents, setDocuments] = useState<WalletDocument[]>([]);
+  const [selectedTx, setSelectedTx] = useState<WalletTransaction | null>(null);
   const [loading, setLoading] = useState(true);
 
   // Modal Visibility States
@@ -497,7 +499,17 @@ export function WalletHomeScreen() {
               <ActivityIndicator size="large" color={theme.colors.primary} style={{ marginVertical: 20 }} />
             ) : transactions.length > 0 ? (
               transactions.map((tx, idx) => (
-                <Pressable key={idx} style={[styles.cardRow, { backgroundColor: theme.colors.surface + '60', borderColor: theme.colors.border + '2A' }]} onPress={() => router.push('/wallet/transactions')}>
+                <Pressable
+                  key={idx}
+                  style={[styles.cardRow, { backgroundColor: theme.colors.surface + '60', borderColor: theme.colors.border + '2A' }]}
+                  onPress={() => {
+                    if (tx.receipt_data) {
+                      setSelectedTx(tx);
+                    } else {
+                      router.push('/wallet/transactions');
+                    }
+                  }}
+                >
                   <TransactionRow 
                     title={tx.title}
                     subtitle={tx.category}
@@ -505,7 +517,12 @@ export function WalletHomeScreen() {
                     icon={tx.icon as any}
                     style={{ flex: 1 }}
                   />
-                  <Ionicons name="chevron-forward-outline" size={16} color={theme.colors.textSecondary} style={{ marginLeft: 8 }} />
+                  <Ionicons
+                    name={tx.receipt_data ? 'receipt-outline' : 'chevron-forward-outline'}
+                    size={16}
+                    color={tx.receipt_data ? '#FFC244' : theme.colors.textSecondary}
+                    style={{ marginLeft: 8 }}
+                  />
                 </Pressable>
               ))
             ) : (
@@ -780,6 +797,18 @@ export function WalletHomeScreen() {
         </View>
       </Modal>
     </SafeAreaView>
+
+      {/* Digital Receipt Modal */}
+      {selectedTx && (
+        <WalletReceiptModal
+          visible={!!selectedTx}
+          transactionTitle={selectedTx.title}
+          transactionAmount={`${selectedTx.amount.toFixed(3)} TND`}
+          transactionDate={selectedTx.transaction_date}
+          receiptData={selectedTx.receipt_data ? JSON.parse(selectedTx.receipt_data) as ReceiptDetails : null}
+          onClose={() => setSelectedTx(null)}
+        />
+      )}
   );
 }
 
