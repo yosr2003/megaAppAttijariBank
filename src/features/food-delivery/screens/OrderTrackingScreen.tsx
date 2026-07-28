@@ -7,7 +7,7 @@ import { Screen, GlassCard, SectionTitle } from '@/src/components/ui';
 import { useTheme } from '@/src/hooks/use-theme';
 import { dbService, DbOrder } from '@/src/services/db-service';
 import { TEST_USER_ID } from '@/src/hooks/use-db';
-import { MOCK_DRIVER } from '../mocks';
+import { MOCK_DRIVER } from '../mocks/index';
 
 export function OrderTrackingScreen() {
   const router = useRouter();

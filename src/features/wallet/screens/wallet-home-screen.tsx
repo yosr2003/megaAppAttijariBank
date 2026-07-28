@@ -267,6 +267,7 @@ export function WalletHomeScreen() {
   };
 
   return (
+    <>
     <SafeAreaView edges={['top']} style={[styles.safeArea, { backgroundColor: theme.colors.background }]}>
       <StatusBar style={theme.mode === 'dark' ? 'light' : 'dark'} />
       <StarField />
@@ -809,6 +810,7 @@ export function WalletHomeScreen() {
           onClose={() => setSelectedTx(null)}
         />
       )}
+    </>
   );
 }
 
