@@ -24,6 +24,7 @@ import {
     MOCK_RESTAURANTS,
     USER_NAME,
 } from "../mocks";
+import { AddressPickerModal } from "../components/AddressPickerModal";
 
 export function FoodDeliveryHomeScreen() {
   const router = useRouter();
@@ -31,6 +32,8 @@ export function FoodDeliveryHomeScreen() {
   const { getItemCount } = useFoodCartStore();
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>("");
+  const [isMapVisible, setIsMapVisible] = useState(false);
+  const [currentAddress, setCurrentAddress] = useState("Tunis, La Marsa");
 
   const cartCount = getItemCount();
   const aiRecommendation = MOCK_AI_RECOMMENDATIONS[0];
@@ -65,7 +68,7 @@ export function FoodDeliveryHomeScreen() {
       <SafeAreaView edges={["top"]}>
         {/* Header */}
         <View style={styles.header}>
-          <Pressable style={styles.locationContainer}>
+          <Pressable style={styles.locationContainer} onPress={() => setIsMapVisible(true)}>
             <Ionicons
               name="location-outline"
               size={24}
@@ -85,8 +88,9 @@ export function FoodDeliveryHomeScreen() {
                   styles.locationText,
                   { color: theme.colors.textPrimary },
                 ]}
+                numberOfLines={1}
               >
-                Tunis, La Marsa
+                {currentAddress}
               </Text>
             </View>
             <Ionicons
@@ -466,6 +470,15 @@ export function FoodDeliveryHomeScreen() {
             ))}
           </View>
         </ScrollView>
+        {/* Interactive Address Picker Map Modal */}
+        <AddressPickerModal
+          visible={isMapVisible}
+          onSaveAddress={(newAdd) => {
+            setCurrentAddress(newAdd.address);
+            setIsMapVisible(false);
+          }}
+          onClose={() => setIsMapVisible(false)}
+        />
       </SafeAreaView>
     </Screen>
   );

@@ -18,6 +18,8 @@ import { dbService, WalletCard } from "@/src/services/db-service";
 import { TEST_USER_ID } from "@/src/hooks/use-db";
 import { FaceIdModal } from "../components/FaceIdModal";
 import { DeliverySchedulerModal } from "../components/DeliverySchedulerModal";
+import { AddressPickerModal } from "../components/AddressPickerModal";
+import { SavedAddress } from "../types";
 
 type PaymentMethod = "wallet" | "card" | "cash";
 type DeliveryTimeMode = "now" | "schedule";
@@ -29,9 +31,11 @@ export function OrderScreen() {
   const { items, clearCart, getSubtotal, getTotal, restaurant } = useFoodCartStore();
 
   // Address & Time State
+  const [addressesList, setAddressesList] = useState<SavedAddress[]>(MOCK_ADDRESSES);
   const [selectedAddressId, setSelectedAddressId] = useState(
     MOCK_ADDRESSES.find((a) => a.isDefault)?.id || MOCK_ADDRESSES[0].id,
   );
+  const [isMapVisible, setIsMapVisible] = useState(false);
   const [deliveryTimeMode, setDeliveryTimeMode] = useState<DeliveryTimeMode>("now");
   const [scheduledTime, setScheduledTime] = useState("Aujourd'hui à 20:30");
   const [isSchedulerVisible, setIsSchedulerVisible] = useState(false);
@@ -127,7 +131,7 @@ export function OrderScreen() {
     setIsFaceIdVisible(false);
 
     try {
-      const selectedAddress = MOCK_ADDRESSES.find((a) => a.id === selectedAddressId)?.address || "La Marsa, Tunis";
+      const selectedAddress = addressesList.find((a) => a.id === selectedAddressId)?.address || "La Marsa, Tunis";
       const chosenDeliveryTime = deliveryTimeMode === "now" ? "Maintenant (25-35 min)" : scheduledTime;
 
       // Deduct card balance if paying by card or wallet
@@ -190,7 +194,7 @@ export function OrderScreen() {
           {/* 1. Delivery Address */}
           <View style={{ paddingHorizontal: theme.spacing.md, marginBottom: theme.spacing.md }}>
             <SectionTitle title="Adresse de livraison" />
-            {MOCK_ADDRESSES.map((address) => (
+            {addressesList.map((address) => (
               <Pressable
                 key={address.id}
                 onPress={() => {
@@ -224,6 +228,27 @@ export function OrderScreen() {
                 </GlassCard>
               </Pressable>
             ))}
+
+            <Pressable
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 8,
+                backgroundColor: "#FFC24420",
+                borderColor: "#FFC244",
+                borderWidth: 1,
+                paddingVertical: 14,
+                borderRadius: 20,
+                marginTop: 4,
+              }}
+              onPress={() => setIsMapVisible(true)}
+            >
+              <Ionicons name="map-outline" size={20} color="#FFC244" />
+              <Text style={{ color: "#FFC244", fontWeight: "800", fontSize: 14 }}>
+                + Choisir une nouvelle adresse sur la carte 🗺️
+              </Text>
+            </Pressable>
           </View>
 
           {/* 2. Delivery Time */}
@@ -500,6 +525,16 @@ export function OrderScreen() {
             setIsSchedulerVisible(false);
           }}
           onClose={() => setIsSchedulerVisible(false)}
+        />
+        {/* Address Picker Map Modal */}
+        <AddressPickerModal
+          visible={isMapVisible}
+          onSaveAddress={(newAdd) => {
+            setAddressesList((prev) => [newAdd, ...prev]);
+            setSelectedAddressId(newAdd.id);
+            setIsMapVisible(false);
+          }}
+          onClose={() => setIsMapVisible(false)}
         />
       </SafeAreaView>
     </Screen>
