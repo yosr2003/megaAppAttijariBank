@@ -30,11 +30,10 @@ export function FoodCartScreen() {
     clearCart,
     getSubtotal,
     getTotal,
-    getDeliveryFee,
   } = useFoodCartStore();
 
   const subtotal = getSubtotal();
-  const deliveryFee = getDeliveryFee();
+  const deliveryFee = restaurant?.deliveryFee || 0;
   const total = getTotal();
 
   if (!restaurant || items.length === 0) {
@@ -337,13 +336,19 @@ export function FoodCartScreen() {
           </View>
         </ScrollView>
 
-        {/* Checkout Button */}
+        {/* Checkout Button - Glovo Style */}
         <View style={styles.checkoutContainer}>
-          <PrimaryButton
-            title={`Commander · ${total.toFixed(3)} TND`}
+          <Pressable
+            style={styles.glovoButton}
             onPress={() => router.push("/food-delivery/order" as any)}
-            size="large"
-          />
+          >
+            <Text style={styles.glovoButtonText}>
+              Commander
+            </Text>
+            <Text style={styles.glovoButtonTotal}>
+              {total.toFixed(3)} TND
+            </Text>
+          </Pressable>
         </View>
       </SafeAreaView>
     </Screen>
@@ -492,5 +497,30 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     padding: 20,
+    backgroundColor: "transparent",
+  },
+  glovoButton: {
+    backgroundColor: "#FFC244", // Glovo Yellow
+    paddingVertical: 18,
+    paddingHorizontal: 24,
+    borderRadius: 30, // Extremely rounded like Glovo
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    shadowColor: "#FFC244",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    elevation: 10,
+  },
+  glovoButtonText: {
+    color: "#000000",
+    fontSize: 18,
+    fontWeight: "800",
+  },
+  glovoButtonTotal: {
+    color: "#000000",
+    fontSize: 18,
+    fontWeight: "800",
   },
 });
