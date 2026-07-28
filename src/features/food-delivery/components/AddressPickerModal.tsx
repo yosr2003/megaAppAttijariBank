@@ -1,9 +1,18 @@
 import React, { useState } from 'react';
-import { Modal, StyleSheet, Text, View, Pressable, TextInput, ScrollView, Alert } from 'react-native';
+import { Modal, StyleSheet, Text, View, Pressable, TextInput, ScrollView, Alert, Platform, Image } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import MapView, { Marker, PROVIDER_DEFAULT } from 'react-native-maps';
 import * as Haptics from 'expo-haptics';
 import { SavedAddress } from '../types';
+
+let MapView: any = null;
+let Marker: any = null;
+try {
+  const Maps = require('react-native-maps');
+  MapView = Maps.default;
+  Marker = Maps.Marker;
+} catch (e) {
+  console.log('react-native-maps native module fallback');
+}
 
 interface AddressPickerModalProps {
   visible: boolean;
@@ -12,10 +21,10 @@ interface AddressPickerModalProps {
 }
 
 const TUNIS_PRESETS = [
-  { label: 'La Marsa', address: 'Avenue Habib Bourguiba, La Marsa, Tunis', lat: 36.8782, lng: 10.3247 },
-  { label: 'Lac 2', address: 'Les Berges du Lac 2, Tunis', lat: 36.8392, lng: 10.2443 },
-  { label: 'Centre Ville', address: 'Rue de Marseille, Tunis', lat: 36.8008, lng: 10.1800 },
-  { label: 'Sidi Bou Saïd', address: 'Rue Hedi Zarrouk, Sidi Bou Saïd', lat: 36.8700, lng: 10.3470 },
+  { label: 'La Marsa 🏖️', address: 'Avenue Habib Bourguiba, La Marsa, Tunis', lat: 36.8782, lng: 10.3247 },
+  { label: 'Lac 2 🏢', address: 'Les Berges du Lac 2, Tunis', lat: 36.8392, lng: 10.2443 },
+  { label: 'Centre Ville 🏛️', address: 'Rue de Marseille, Tunis', lat: 36.8008, lng: 10.1800 },
+  { label: 'Sidi Bou Saïd 🔵', address: 'Rue Hedi Zarrouk, Sidi Bou Saïd', lat: 36.8700, lng: 10.3470 },
 ];
 
 export function AddressPickerModal({
@@ -23,36 +32,19 @@ export function AddressPickerModal({
   onSaveAddress,
   onClose,
 }: AddressPickerModalProps) {
-  const [region, setRegion] = useState({
-    latitude: 36.8782,
-    longitude: 10.3247,
-    latitudeDelta: 0.015,
-    longitudeDelta: 0.015,
-  });
-
-  const [markerCoord, setMarkerCoord] = useState({
-    latitude: 36.8782,
-    longitude: 10.3247,
-  });
-
+  const [selectedPresetIndex, setSelectedPresetIndex] = useState(0);
   const [addressLabel, setAddressLabel] = useState<'Maison' | 'Travail' | 'Autre'>('Maison');
-  const [streetAddress, setStreetAddress] = useState('Avenue Habib Bourguiba, La Marsa, Tunis');
+  const [streetAddress, setStreetAddress] = useState(TUNIS_PRESETS[0].address);
+  const [latLng, setLatLng] = useState({ lat: TUNIS_PRESETS[0].lat, lng: TUNIS_PRESETS[0].lng });
 
   if (!visible) return null;
 
-  const handleSelectPreset = async (preset: typeof TUNIS_PRESETS[0]) => {
+  const handleSelectPreset = async (index: number) => {
     await Haptics.selectionAsync();
-    setRegion({
-      latitude: preset.lat,
-      longitude: preset.lng,
-      latitudeDelta: 0.012,
-      longitudeDelta: 0.012,
-    });
-    setMarkerCoord({
-      latitude: preset.lat,
-      longitude: preset.lng,
-    });
-    setStreetAddress(preset.address);
+    const p = TUNIS_PRESETS[index];
+    setSelectedPresetIndex(index);
+    setStreetAddress(p.address);
+    setLatLng({ lat: p.lat, lng: p.lng });
   };
 
   const handleConfirm = async () => {
@@ -67,13 +59,15 @@ export function AddressPickerModal({
       id: Date.now().toString(),
       label: addressLabel,
       address: streetAddress.trim(),
-      latitude: markerCoord.latitude,
-      longitude: markerCoord.longitude,
+      latitude: latLng.lat,
+      longitude: latLng.lng,
       isDefault: true,
     };
 
     onSaveAddress(newAdd);
   };
+
+  const isNativeMapSupported = Platform.OS !== 'web' && MapView;
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
@@ -86,8 +80,8 @@ export function AddressPickerModal({
                 <Ionicons name="map" size={22} color="#000000" />
               </View>
               <View>
-                <Text style={styles.title}>Choisir sur la Carte</Text>
-                <Text style={styles.subtitle}>Déplacez le repère pour définir votre adresse</Text>
+                <Text style={styles.title}>Sélectionner votre Adresse</Text>
+                <Text style={styles.subtitle}>Choisissez sur la carte interactive de Tunis</Text>
               </View>
             </View>
 
@@ -96,55 +90,84 @@ export function AddressPickerModal({
             </Pressable>
           </View>
 
-          {/* Interactive Map View */}
+          {/* Map Section */}
           <View style={styles.mapContainer}>
-            <MapView
-              provider={PROVIDER_DEFAULT}
-              style={styles.map}
-              region={region}
-              onRegionChangeComplete={(r) => {
-                setRegion(r);
-                setMarkerCoord({ latitude: r.latitude, longitude: r.longitude });
-              }}
-            >
-              <Marker
-                coordinate={markerCoord}
-                draggable
-                onDragEnd={(e) => setMarkerCoord(e.nativeEvent.coordinate)}
-                title="Adresse de livraison"
-                description={streetAddress}
+            {isNativeMapSupported ? (
+              <MapView
+                style={styles.map}
+                initialRegion={{
+                  latitude: latLng.lat,
+                  longitude: latLng.lng,
+                  latitudeDelta: 0.015,
+                  longitudeDelta: 0.015,
+                }}
+                onRegionChangeComplete={(r: any) => setLatLng({ lat: r.latitude, lng: r.longitude })}
               >
-                <View style={styles.customMarker}>
-                  <Ionicons name="location" size={32} color="#FFC244" />
+                <Marker
+                  coordinate={{ latitude: latLng.lat, longitude: latLng.lng }}
+                  draggable
+                  onDragEnd={(e: any) => setLatLng({ lat: e.nativeEvent.coordinate.latitude, lng: e.nativeEvent.coordinate.longitude })}
+                  title="Adresse de livraison"
+                >
+                  <View style={styles.customMarker}>
+                    <Ionicons name="location" size={36} color="#FFC244" />
+                  </View>
+                </Marker>
+              </MapView>
+            ) : (
+              // Rich Visual Fallback Map
+              <View style={styles.visualMapFallback}>
+                <Image
+                  source={{ uri: 'https://images.unsplash.com/photo-1524661135-423995f22d0b?w=800&q=80' }}
+                  style={styles.fallbackMapImg}
+                />
+                <View style={styles.overlayGrid} />
+                
+                {/* Central Pin */}
+                <View style={styles.pinCenter}>
+                  <View style={styles.pulseDot} />
+                  <Ionicons name="location-sharp" size={44} color="#FFC244" />
                 </View>
-              </Marker>
-            </MapView>
 
-            {/* Target Crosshair Badge */}
-            <View style={styles.centerBadge}>
-              <Text style={styles.centerBadgeText}>📍 Position de livraison</Text>
-            </View>
+                {/* Coords Tag */}
+                <View style={styles.coordsBadge}>
+                  <Text style={styles.coordsText}>
+                    📍 {latLng.lat.toFixed(4)}° N, {latLng.lng.toFixed(4)}° E
+                  </Text>
+                </View>
+              </View>
+            )}
           </View>
 
-          {/* Quick Presets */}
+          {/* Presets Bar */}
+          <Text style={styles.inputLabel}>QUARTIERS POPULAIRES (TUNIS)</Text>
           <View style={styles.presetsRow}>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
-              {TUNIS_PRESETS.map((p, idx) => (
-                <Pressable
-                  key={idx}
-                  style={styles.presetPill}
-                  onPress={() => handleSelectPreset(p)}
-                >
-                  <Ionicons name="compass-outline" size={14} color="#FFC244" />
-                  <Text style={styles.presetText}>{p.label}</Text>
-                </Pressable>
-              ))}
+              {TUNIS_PRESETS.map((p, idx) => {
+                const isSelected = selectedPresetIndex === idx;
+                return (
+                  <Pressable
+                    key={idx}
+                    style={[styles.presetPill, isSelected && styles.presetPillActive]}
+                    onPress={() => handleSelectPreset(idx)}
+                  >
+                    <Ionicons
+                      name="compass-outline"
+                      size={14}
+                      color={isSelected ? '#000000' : '#FFC244'}
+                    />
+                    <Text style={[styles.presetText, isSelected && styles.presetTextActive]}>
+                      {p.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
             </ScrollView>
           </View>
 
-          {/* Address Details Inputs */}
+          {/* Form Controls */}
           <View style={styles.formSection}>
-            <Text style={styles.inputLabel}>ÉTIQUETTE D'ADRESSE</Text>
+            <Text style={styles.inputLabel}>TYPE D'EMPLACEMENT</Text>
             <View style={styles.labelPickerRow}>
               {(['Maison', 'Travail', 'Autre'] as const).map((lbl) => {
                 const isSelected = addressLabel === lbl;
@@ -168,23 +191,23 @@ export function AddressPickerModal({
               })}
             </View>
 
-            <Text style={styles.inputLabel}>RUE & QUARTIER (TUNIS)</Text>
+            <Text style={styles.inputLabel}>ADRESSE ET RUE</Text>
             <View style={styles.inputBox}>
               <Ionicons name="navigate-outline" size={20} color="#FFC244" style={{ marginRight: 8 }} />
               <TextInput
                 style={styles.textInput}
                 value={streetAddress}
                 onChangeText={setStreetAddress}
-                placeholder="Ex: Rue de Marseille, La Marsa"
+                placeholder="Saisissez votre adresse à Tunis..."
                 placeholderTextColor="#8E8E93"
               />
             </View>
           </View>
 
-          {/* Confirm Button */}
+          {/* Submit Action */}
           <Pressable style={styles.confirmBtn} onPress={handleConfirm}>
             <Ionicons name="checkmark-circle" size={22} color="#000000" />
-            <Text style={styles.confirmText}>Valider cette Adresse</Text>
+            <Text style={styles.confirmText}>Confirmer cette Adresse</Text>
           </Pressable>
         </View>
       </View>
@@ -241,7 +264,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   mapContainer: {
-    height: 200,
+    height: 190,
     borderRadius: 20,
     overflow: 'hidden',
     position: 'relative',
@@ -257,22 +280,53 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  centerBadge: {
+  visualMapFallback: {
+    width: '100%',
+    height: '100%',
+    position: 'relative',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  fallbackMapImg: {
+    width: '100%',
+    height: '100%',
+    opacity: 0.6,
+  },
+  overlayGrid: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(28, 28, 30, 0.4)',
+  },
+  pinCenter: {
+    position: 'absolute',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pulseDot: {
+    position: 'absolute',
+    bottom: 4,
+    width: 20,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+  },
+  coordsBadge: {
     position: 'absolute',
     top: 10,
-    alignSelf: 'center',
-    backgroundColor: 'rgba(0,0,0,0.75)',
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#FFC244',
   },
-  centerBadgeText: {
+  coordsText: {
     color: '#FFC244',
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: '800',
   },
   presetsRow: {
     marginBottom: 16,
+    marginTop: 6,
   },
   presetPill: {
     flexDirection: 'row',
@@ -285,14 +339,22 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#3A3A3C',
   },
+  presetPillActive: {
+    backgroundColor: '#FFC244',
+    borderColor: '#FFC244',
+  },
   presetText: {
     color: '#FFFFFF',
     fontSize: 12,
     fontWeight: '600',
   },
+  presetTextActive: {
+    color: '#000000',
+    fontWeight: '800',
+  },
   formSection: {
     gap: 10,
-    marginBottom: 20,
+    marginBottom: 18,
   },
   inputLabel: {
     color: '#8E8E93',
