@@ -116,11 +116,11 @@ export function FoodDeliveryHomeScreen() {
             <Pressable
               style={[
                 styles.avatarButton,
-                { backgroundColor: theme.colors.primary },
+                { backgroundColor: "#FFC244" },
               ]}
             >
               <Text
-                style={[styles.avatarText, { color: theme.colors.primaryOn }]}
+                style={[styles.avatarText, { color: "#000000" }]}
               >
                 {USER_NAME[0]}
               </Text>
@@ -165,7 +165,7 @@ export function FoodDeliveryHomeScreen() {
                 style={[
                   styles.aiButton,
                   {
-                    backgroundColor: theme.colors.primary,
+                    backgroundColor: "#FFC244",
                     marginTop: theme.spacing.md,
                   },
                 ]}
@@ -180,7 +180,7 @@ export function FoodDeliveryHomeScreen() {
                 <Text
                   style={[
                     styles.aiButtonText,
-                    { color: theme.colors.primaryOn },
+                    { color: "#000000" },
                   ]}
                 >
                   Show Suggestions
@@ -188,7 +188,7 @@ export function FoodDeliveryHomeScreen() {
                 <Ionicons
                   name="arrow-forward-outline"
                   size={16}
-                  color={theme.colors.primaryOn}
+                  color="#000000"
                 />
               </Pressable>
             </GlassCard>
@@ -259,10 +259,10 @@ export function FoodDeliveryHomeScreen() {
                       styles.categoryButton,
                       {
                         backgroundColor: isSelected
-                          ? theme.colors.primary
+                          ? "#FFC244"
                           : theme.colors.surface,
                         borderColor: isSelected
-                          ? theme.colors.primary
+                          ? "#FFC244"
                           : theme.colors.border,
                         borderWidth: 1,
                       },
@@ -277,7 +277,7 @@ export function FoodDeliveryHomeScreen() {
                         styles.categoryText,
                         {
                           color: isSelected
-                            ? theme.colors.primaryOn
+                            ? "#000000"
                             : theme.colors.textSecondary,
                         },
                       ]}

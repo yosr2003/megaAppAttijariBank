@@ -341,28 +341,28 @@ export function RestaurantDetailScreen() {
                         <Pressable
                           style={[
                             styles.quantityButton,
-                            { backgroundColor: theme.colors.primary },
+                            { backgroundColor: "#FFC244" },
                           ]}
                           onPress={() => updateQuantity(item.id, 1)}
                         >
                           <Ionicons
                             name="add"
                             size={16}
-                            color={theme.colors.primaryOn}
+                            color="#000000"
                           />
                         </Pressable>
                       </View>
                       <Pressable
                         style={[
                           styles.addButton,
-                          { backgroundColor: theme.colors.primary },
+                          { backgroundColor: "#FFC244" },
                         ]}
                         onPress={() => handleAddItem(item)}
                       >
                         <Ionicons
                           name="cart"
                           size={20}
-                          color={theme.colors.primaryOn}
+                          color="#000000"
                         />
                       </Pressable>
                     </View>
@@ -373,13 +373,13 @@ export function RestaurantDetailScreen() {
           </View>
         </ScrollView>
 
-        {/* Floating Cart Button */}
+        {/* Floating Cart Button - Glovo Style */}
         {itemCount > 0 && (
           <View style={styles.cartContainer}>
             <Pressable
               style={[
                 styles.cartButton,
-                { backgroundColor: theme.colors.primary },
+                { backgroundColor: "#FFC244" },
               ]}
               onPress={() => router.push("/food-delivery/cart" as any)}
             >
@@ -387,11 +387,11 @@ export function RestaurantDetailScreen() {
                 <View
                   style={[
                     styles.cartCountBadge,
-                    { backgroundColor: theme.colors.primaryOn },
+                    { backgroundColor: "#000000" },
                   ]}
                 >
                   <Text
-                    style={[styles.cartCount, { color: theme.colors.primary }]}
+                    style={[styles.cartCount, { color: "#FFC244" }]}
                   >
                     {itemCount}
                   </Text>
@@ -399,14 +399,14 @@ export function RestaurantDetailScreen() {
                 <Text
                   style={[
                     styles.cartButtonText,
-                    { color: theme.colors.primaryOn },
+                    { color: "#000000" },
                   ]}
                 >
                   Voir le panier
                 </Text>
               </View>
               <Text
-                style={[styles.cartTotal, { color: theme.colors.primaryOn }]}
+                style={[styles.cartTotal, { color: "#000000" }]}
               >
                 {total.toFixed(3)} TND
               </Text>
