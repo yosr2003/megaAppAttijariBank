@@ -7,6 +7,7 @@ import org.example.backendyosrmegaapp.Enum.UserType;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Entity
 @Table(name = "users")
@@ -69,11 +70,20 @@ public class User {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private UserType userType;
-    @Column(name = "biometric_enabled")
-    private Boolean biometricEnabled = false;
 
+    @Column(name="face_embedding", columnDefinition="TEXT")
+    private String faceEmbedding;
+
+    private Boolean biometricEnabled;
     @Column(name = "biometric_type")
     private String biometricType;
+    private Integer faceVersion;
+
+    private LocalDateTime biometricCreatedAt;
+    @OneToMany(mappedBy = "user",
+            cascade = CascadeType.ALL,
+            fetch = FetchType.LAZY)
+    private List<FaceBiometric> faces;
     @PrePersist
     public void onCreate() {
         createdAt = LocalDateTime.now();
@@ -84,4 +94,6 @@ public class User {
     public void onUpdate() {
         updatedAt = LocalDateTime.now();
     }
+
+
 }

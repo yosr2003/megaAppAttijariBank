@@ -39,6 +39,12 @@
           }
         }
       ],
+       [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow SuperTounsi to access your camera"
+        }
+      ],
       "@react-native-community/datetimepicker"
     ],
     "experiments": {

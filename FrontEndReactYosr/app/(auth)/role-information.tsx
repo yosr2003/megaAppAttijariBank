@@ -234,13 +234,14 @@ form.append(
     }
 
 const result = await signup(form);
+console.log("SIGNUP RESPONSE:", result);
 
 Alert.alert("Success", result.message);
 
 router.push({
     pathname: "/(auth)/biometric-setup",
     params: {
-        userId: result.userId
+        userId: String(result.userId)
     }
 });
 

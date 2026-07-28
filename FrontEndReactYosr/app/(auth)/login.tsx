@@ -2,7 +2,9 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { router } from "expo-router";
 import { login } from "../../services/authService";
+import { loginFace } from "../../services/face";
 import { saveToken, saveUser } from "../../utils/storage";
+import * as ImagePicker from 'expo-image-picker';
 import {
   StyleSheet,
   View,
@@ -87,6 +89,104 @@ const handleContinue = async () => {
 
 };
 
+
+const handleFaceLogin = async () => {
+
+  try {
+
+
+    const permission =
+      await ImagePicker.requestCameraPermissionsAsync();
+
+
+    if (!permission.granted) {
+
+      Alert.alert(
+        "Permission refusée",
+        "La caméra est nécessaire pour la reconnaissance faciale."
+      );
+
+      return;
+    }
+
+
+
+    const result =
+      await ImagePicker.launchCameraAsync({
+
+        allowsEditing: true,
+
+        quality: 0.8,
+
+      });
+
+
+
+    if(result.canceled){
+      return;
+    }
+
+
+
+    const photoUri =
+      result.assets[0].uri;
+
+
+
+    const response =
+      await loginFace(photoUri);
+
+
+
+    await saveToken(response.token);
+
+    await saveUser(response);
+
+
+
+    Alert.alert(
+      "Success",
+      `Welcome ${response.firstName} ${response.lastName}`
+    );
+
+
+
+    router.replace("/(tabs)/explore");
+
+
+
+  } catch(error:any){
+
+
+    console.log(error);
+
+
+
+    if(error.response){
+
+      Alert.alert(
+        "Face authentication failed",
+        error.response.data || 
+        "Face not recognized"
+      );
+
+
+    }else{
+
+
+      Alert.alert(
+        "Error",
+        "Unable to connect to server"
+      );
+
+
+    }
+
+  }
+
+};
+
+
   const handleForgotPassword = () => {
     Alert.alert('Forgot Password', 'Password reset flow initiated.');
   };
@@ -158,10 +258,11 @@ const handleContinue = async () => {
                   type="fingerprint"
                   onPress={() => handleBiometricPress('fingerprint')}
                 />
-                <BiometricCard
+               <BiometricCard
                   type="faceid"
-                  onPress={() => handleBiometricPress('faceid')}
+                  onPress={handleFaceLogin}
                 />
+
               </View>
 
             <View style={styles.footerContainer}>

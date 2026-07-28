@@ -127,7 +127,10 @@ public class WebSecurityConfig {
                         .requestMatchers(
                                 "/api/auth/login",
                                 "/api/auth/signup",
-                                "/error"
+                                "/error",
+                                "/api/faces/register",
+                                "/api/faces/test-face",
+                                "/api/faces/login"
                         ).permitAll()
 
 

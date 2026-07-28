@@ -1,5 +1,6 @@
 // app/(auth)/biometric-setup.tsx
 import React, { useState, useEffect, useRef } from 'react';
+
 import {
   StyleSheet,
   View,
@@ -10,7 +11,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { Colors } from '../../constants/Colors';
 import { Typography } from '../../constants/Typography';
@@ -22,7 +23,7 @@ export default function BiometricSetupScreen() {
   const router = useRouter();
   const [selectedMethod, setSelectedMethod] = useState<'fingerprint' | 'faceid' | null>(null);
   const fadeAnim = useRef(new Animated.Value(0)).current;
-
+const { userId } = useLocalSearchParams();
   useEffect(() => {
     Animated.timing(fadeAnim, {
       toValue: 1,
@@ -86,19 +87,28 @@ export default function BiometricSetupScreen() {
       });
 
       if (result.success) {
-        Alert.alert(
-          'Success',
-          `${methodLabel} registration completed successfully!`,
-          [
-            {
-              text: 'OK',
-              onPress: () => {
-                router.replace('/(auth)/login');
-              },
-            },
-          ]
-        );
-      } else {
+
+  if (selectedMethod === "faceid") {
+
+   if (!userId) {
+  Alert.alert("Erreur", "Utilisateur introuvable");
+  return;
+}
+
+router.push({
+  pathname: "/(auth)/face-capture",
+  params: {
+    userId: String(userId)
+  }
+});
+
+  } else {
+
+    router.replace("/(auth)/login");
+
+  }
+
+} else {
         if (result.error !== 'user_cancel' && result.error !== 'system_cancel') {
           Alert.alert('Authentication Failed', `Error: ${result.error || 'Please try again'}`);
         }
