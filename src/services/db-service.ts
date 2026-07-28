@@ -161,6 +161,14 @@ export const dbService = {
   async getLatestOrder(userId: string) {
     const db = await readDatabase();
     return db.orders.filter((o) => o.user_id === userId)[0] || null;
-  }
+  },
+  async getAllOrders(userId: string) {
+    const db = await readDatabase();
+    const orders = db.orders.filter((o) => o.user_id === userId);
+    return orders.map((order) => ({
+      ...order,
+      items: db.orderItems.filter((i) => i.order_id === order.id),
+    }));
+  },
 };
 
