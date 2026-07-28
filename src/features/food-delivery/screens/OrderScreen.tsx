@@ -15,6 +15,8 @@ import React, { useEffect, useState } from "react";
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MOCK_ADDRESSES } from "../mocks";
+import { dbService } from "@/src/services/db-service";
+import { TEST_USER_ID } from "@/src/hooks/use-db";
 
 type PaymentMethod = "wallet" | "card" | "cash";
 
@@ -40,7 +42,7 @@ export function OrderScreen() {
     }
   }, [items.length, router]);
 
-  const handleConfirmOrder = () => {
+  const handleConfirmOrder = async () => {
     const isValid = validate({
       selectedAddressId: {
         value: selectedAddressId,
@@ -53,6 +55,37 @@ export function OrderScreen() {
     if (!items.length) {
       Alert.alert('Panier vide', 'Ajoutez des articles avant de commander.');
       return;
+    }
+
+    if (paymentMethod === 'wallet') {
+      try {
+        const cards = await dbService.getCards(TEST_USER_ID);
+        const primaryCard = cards[0];
+
+        if (primaryCard && primaryCard.balance < total) {
+          Alert.alert(
+            'Solde Insuffisant',
+            `Le solde de votre portefeuille (${primaryCard.balance.toFixed(3)} TND) est insuffisant pour cette commande (${total.toFixed(3)} TND).`
+          );
+          return;
+        }
+
+        if (primaryCard) {
+          const newBalance = primaryCard.balance - total;
+          await dbService.updateCardBalance(primaryCard.id!, newBalance);
+          await dbService.createTransaction({
+            user_id: TEST_USER_ID,
+            card_id: primaryCard.id,
+            title: `Livraison - ${restaurant?.name || 'Commande'}`,
+            category: 'Food & drink',
+            amount: -total,
+            currency: 'TND',
+            icon: 'fast-food-outline',
+          });
+        }
+      } catch (err) {
+        console.error('Failed to process wallet payment:', err);
+      }
     }
 
     clearCart();
