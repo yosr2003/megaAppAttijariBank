@@ -17,13 +17,13 @@ export function OrderSuccessScreen() {
           <View
             style={[
               styles.successIconContainer,
-              { backgroundColor: `${theme.colors.success}20` },
+              { backgroundColor: "#00A08220" }, // Glovo Green with opacity
             ]}
           >
             <Ionicons
               name="checkmark-circle"
               size={100}
-              color={theme.colors.success}
+              color="#00A082" // Glovo Green
             />
           </View>
 
@@ -121,19 +121,19 @@ export function OrderSuccessScreen() {
             </View>
           </View>
 
-          <PrimaryButton
-            title="Suivre ma commande"
+          <Pressable
+            style={styles.glovoButton}
             onPress={() => router.replace("/(tabs)" as any)}
-            style={{ marginBottom: 16 }}
-            size="large"
-          />
+          >
+            <Text style={styles.glovoButtonText}>Suivre ma commande</Text>
+          </Pressable>
 
           <Pressable
             style={styles.homeButton}
             onPress={() => router.replace("/food-delivery" as any)}
           >
             <Text
-              style={[styles.homeButtonText, { color: theme.colors.primary }]}
+              style={[styles.homeButtonText, { color: "#00A082" }]} // Glovo Green
             >
               Retour à l'accueil
             </Text>
@@ -205,5 +205,24 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "600",
     textAlign: "center",
+  },
+  glovoButton: {
+    backgroundColor: "#FFC244", // Glovo Yellow
+    paddingVertical: 18,
+    paddingHorizontal: 24,
+    borderRadius: 30,
+    width: "100%",
+    alignItems: "center",
+    marginBottom: 16,
+    shadowColor: "#FFC244",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    elevation: 10,
+  },
+  glovoButtonText: {
+    color: "#000000",
+    fontSize: 18,
+    fontWeight: "800",
   },
 });

@@ -22,7 +22,7 @@ export function OrderScreen() {
   const router = useRouter();
   const theme = useTheme();
   const { errors, validate, clearError } = useFormValidation();
-  const { items, clearCart, getSubtotal, getTotal, getDeliveryFee } =
+  const { items, clearCart, getSubtotal, getTotal, restaurant } =
     useFoodCartStore();
   const [selectedAddressId, setSelectedAddressId] = useState(
     MOCK_ADDRESSES.find((a) => a.isDefault)?.id || MOCK_ADDRESSES[0].id,
@@ -31,7 +31,7 @@ export function OrderScreen() {
   const [notes, setNotes] = useState("");
 
   const subtotal = getSubtotal();
-  const deliveryFee = getDeliveryFee();
+  const deliveryFee = restaurant?.deliveryFee || 0;
   const total = getTotal();
 
   useEffect(() => {
@@ -322,13 +322,17 @@ export function OrderScreen() {
           </View>
         </ScrollView>
 
-        {/* Confirm Button */}
+        {/* Confirm Button - Glovo Style */}
         <View style={styles.confirmContainer}>
-          <PrimaryButton
-            title="Confirmer la commande"
+          <Pressable
+            style={styles.glovoButton}
             onPress={handleConfirmOrder}
-            size="large"
-          />
+          >
+            <Text style={styles.glovoButtonText}>
+              Confirmer la commande
+            </Text>
+            <Ionicons name="arrow-forward" size={24} color="#000000" />
+          </Pressable>
         </View>
       </SafeAreaView>
     </Screen>
@@ -424,5 +428,25 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     padding: 20,
+    backgroundColor: "transparent",
+  },
+  glovoButton: {
+    backgroundColor: "#FFC244", // Glovo Yellow
+    paddingVertical: 18,
+    paddingHorizontal: 24,
+    borderRadius: 30, // Extremely rounded like Glovo
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    shadowColor: "#FFC244",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    elevation: 10,
+  },
+  glovoButtonText: {
+    color: "#000000",
+    fontSize: 18,
+    fontWeight: "800",
   },
 });
