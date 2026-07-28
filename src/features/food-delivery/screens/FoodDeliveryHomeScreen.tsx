@@ -97,6 +97,43 @@ export function FoodDeliveryHomeScreen() {
           </Pressable>
 
           <View style={styles.headerRight}>
+            {/* Live Order Tracking Button */}
+            <Pressable
+              style={[
+                styles.iconButton,
+                {
+                  backgroundColor: theme.colors.surface,
+                  borderColor: theme.colors.border,
+                },
+              ]}
+              onPress={() => router.push("/food-delivery/order-tracking" as any)}
+            >
+              <Ionicons
+                name="bicycle-outline"
+                size={22}
+                color="#00A082"
+              />
+            </Pressable>
+
+            {/* Order History Button */}
+            <Pressable
+              style={[
+                styles.iconButton,
+                {
+                  backgroundColor: theme.colors.surface,
+                  borderColor: theme.colors.border,
+                },
+              ]}
+              onPress={() => router.push("/food-delivery/history" as any)}
+            >
+              <Ionicons
+                name="receipt-outline"
+                size={22}
+                color="#FFC244"
+              />
+            </Pressable>
+
+            {/* Cart Button */}
             <Pressable
               style={[
                 styles.iconButton,
@@ -122,18 +159,6 @@ export function FoodDeliveryHomeScreen() {
                   <Text style={styles.cartBadgeText}>{cartCount}</Text>
                 </View>
               )}
-            </Pressable>
-            <Pressable
-              style={[
-                styles.avatarButton,
-                { backgroundColor: "#FFC244" },
-              ]}
-            >
-              <Text
-                style={[styles.avatarText, { color: "#000000" }]}
-              >
-                {USER_NAME[0]}
-              </Text>
             </Pressable>
           </View>
         </View>
