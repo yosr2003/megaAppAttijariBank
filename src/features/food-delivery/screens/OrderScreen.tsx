@@ -56,7 +56,7 @@ export function OrderScreen() {
     }
 
     clearCart();
-    router.replace("/food-delivery/success" as any);
+    router.replace("/food-delivery/order-success" as any);
   };
 
   return (
