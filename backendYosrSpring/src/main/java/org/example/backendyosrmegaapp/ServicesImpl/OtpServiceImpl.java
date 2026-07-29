@@ -21,7 +21,7 @@ public class OtpServiceImpl implements OtpService {
     private final OtpCodeRepository otpRepository;
 
 
-
+    private final EmailServiceImpl emailService;
     @Override
     public String generateOtp(User user) {
 
@@ -32,7 +32,6 @@ public class OtpServiceImpl implements OtpService {
                                 .nextInt(900000)
                                 + 100000
                 );
-
 
 
         OtpCode otp =
@@ -47,9 +46,14 @@ public class OtpServiceImpl implements OtpService {
                         .build();
 
 
-
         otpRepository.save(otp);
 
+
+        // Envoi réel de l'OTP
+        emailService.sendOtpEmail(
+                user.getEmail(),
+                code
+        );
 
 
         return code;
