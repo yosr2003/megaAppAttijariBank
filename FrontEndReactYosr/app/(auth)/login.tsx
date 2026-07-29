@@ -41,21 +41,40 @@ export default function LoginScreen() {
   }, [fadeAnim]);
 
 const handleContinue = async () => {
-
   if (!email || !password) {
     Alert.alert("Error", "Please fill in all fields.");
     return;
   }
 
   try {
-
     const response = await login({
       email,
       password,
     });
 
-    await saveToken(response.token);
-    await saveUser(response);
+if (response.status === "OTP_REQUIRED") {
+
+  router.push({
+    pathname: "/(auth)/otp-verification",
+    params: {
+      userId: String(response.userId),
+      method: response.method,
+    },
+  });
+
+  return;
+}
+
+   if (!response.token) {
+  Alert.alert(
+    "Error",
+    "Authentication token missing"
+  );
+  return;
+}
+
+await saveToken(response.token);
+await saveUser(response);
 
     Alert.alert(
       "Success",
@@ -64,31 +83,21 @@ const handleContinue = async () => {
 
     console.log(response);
 
-    // Naviguer vers Home
     router.replace("/(tabs)/explore");
-
   } catch (error: any) {
-
     if (error.response) {
-
       Alert.alert(
         "Login failed",
         error.response.data.message || "Invalid credentials"
       );
-
     } else {
-
       Alert.alert(
         "Network Error",
         "Unable to connect to the server."
       );
-
     }
-
   }
-
 };
-
 
 const handleFaceLogin = async () => {
 

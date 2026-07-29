@@ -4,11 +4,20 @@ export interface LoginRequest {
 }
 
 export interface LoginResponse {
-  token: string;
-  type: string;
-  id: number;
-  firstName: string;
-  lastName: string;
-  email: string;
-  role: string;
+
+  // Cas normal sans 2FA
+  token?: string;
+  type?: string;
+  id?: number;
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  role?: string;
+
+
+  // Cas 2FA activé
+  status?: "OTP_REQUIRED" | "SUCCESS";
+  userId?: number;
+  method?: "EMAIL" | "SMS" | "AUTHENTICATOR";
+
 }
