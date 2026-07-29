@@ -54,13 +54,23 @@ const handleContinue = async () => {
 
 if (response.status === "OTP_REQUIRED") {
 
+  if (!response.userId) {
+    Alert.alert(
+      "Error",
+      "User identifier missing"
+    );
+    return;
+  }
+
+
   router.push({
     pathname: "/(auth)/otp-verification",
     params: {
       userId: String(response.userId),
-      method: response.method,
+      method: response.method ?? "EMAIL",
     },
   });
+
 
   return;
 }

@@ -20,11 +20,21 @@ export const enableTwoFactor = async (
 
 };
 export interface VerifyOtpResponse {
-  token: string;
-  id: number;
-  firstName: string;
-  lastName: string;
-  email: string;
+
+ token:string;
+
+ id:number;
+
+ firstName:string;
+
+ lastName:string;
+
+ email:string;
+
+ role?:string;
+
+ type?:string;
+
 }
 export const generateOtp = async (
   userId: number

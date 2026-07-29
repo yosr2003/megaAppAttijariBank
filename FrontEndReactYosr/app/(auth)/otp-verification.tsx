@@ -12,6 +12,7 @@ import {
   Alert,
   NativeSyntheticEvent,
   TextInputKeyPressEventData,
+  Keyboard,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Feather } from '@expo/vector-icons';
@@ -50,31 +51,33 @@ export default function OtpVerificationScreen() {
     inputRefs.current[0]?.focus();
   }, []);
 
-  useEffect(() => {
-    const sendInitialOtp = async () => {
-      if (!userId || Number.isNaN(userId)) {
-        Alert.alert('Error', 'Invalid user session. Please login again.');
-        router.replace('/(auth)/login');
-        return;
-      }
+ useEffect(() => {
+  const sendInitialOtp = async () => {
 
-      if (method === 'AUTHENTICATOR') {
-        return;
-      }
+    if (!userId || Number.isNaN(userId)) {
+      Alert.alert("Error", "Invalid user session.");
+      router.replace("/(auth)/login");
+      return;
+    }
 
-      try {
-        await generateOtp(userId);
-        Alert.alert('Verification code sent');
-      } catch (error: any) {
-        Alert.alert(
-          'Error',
-          error.response?.data?.message || 'Unable to send verification code.'
-        );
-      }
-    };
+    if (method === "AUTHENTICATOR") {
+      return;
+    }
 
-    sendInitialOtp();
-  }, [userId, method]);
+    try {
+      await generateOtp(userId);
+    } catch (error: any) {
+      Alert.alert(
+        "Error",
+        error.response?.data?.message ||
+          "Unable to send verification code."
+      );
+    }
+  };
+
+  sendInitialOtp();
+
+}, [userId, method]);
 
   const getSubtitle = () => {
     switch (method) {
@@ -100,17 +103,29 @@ export default function OtpVerificationScreen() {
     }
   };
 
-  const handleOtpChange = (value: string, index: number) => {
-    const digit = value.replace(/[^0-9]/g, '').slice(-1);
+ const handleOtpChange = (value: string, index: number) => {
 
-    const nextOtp = [...otp];
-    nextOtp[index] = digit;
-    setOtp(nextOtp);
+  const digit = value.replace(/[^0-9]/g, "").slice(-1);
 
-    if (digit && index < OTP_LENGTH - 1) {
+  const nextOtp = [...otp];
+  nextOtp[index] = digit;
+  setOtp(nextOtp);
+
+  if (digit) {
+
+    if (index < OTP_LENGTH - 1) {
+
       inputRefs.current[index + 1]?.focus();
+
+    } else {
+
+      Keyboard.dismiss();
+
     }
-  };
+
+  }
+
+};
 
   const handleKeyPress = (
     event: NativeSyntheticEvent<TextInputKeyPressEventData>,
@@ -140,7 +155,19 @@ export default function OtpVerificationScreen() {
     try {
       const response = await verifyOtp(userId, code);
 
-      await saveToken(response.token);
+     if(!response.token){
+
+ Alert.alert(
+   "Error",
+   "Token missing after verification"
+ );
+
+ return;
+
+}
+
+
+await saveToken(response.token);
       await saveUser(response);
 
       Alert.alert(
