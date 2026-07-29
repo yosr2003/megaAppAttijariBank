@@ -130,7 +130,8 @@ public class WebSecurityConfig {
                                 "/error",
                                 "/api/faces/register",
                                 "/api/faces/test-face",
-                                "/api/faces/login"
+                                "/api/faces/login",
+                                "/api/2fa/**"
                         ).permitAll()
 
 

@@ -3,6 +3,7 @@ package org.example.backendyosrmegaapp.entities;
 import jakarta.persistence.*;
 import lombok.*;
 import org.example.backendyosrmegaapp.Enum.UserType;
+import org.example.backendyosrmegaapp.Enum.TwoFactorMethod;
 
 
 import java.time.LocalDate;
@@ -78,6 +79,17 @@ public class User {
     @Column(name = "biometric_type")
     private String biometricType;
     private Integer faceVersion;
+
+    @Enumerated(EnumType.STRING)
+    private TwoFactorMethod twoFactorMethod;
+
+
+    @Column(nullable = false)
+    private Boolean twoFactorEnabled = false;
+
+
+    private LocalDateTime twoFactorActivatedAt;
+
 
     private LocalDateTime biometricCreatedAt;
     @OneToMany(mappedBy = "user",

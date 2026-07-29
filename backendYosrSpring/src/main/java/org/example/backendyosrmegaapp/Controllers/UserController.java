@@ -5,6 +5,7 @@ import org.example.backendyosrmegaapp.Enum.UserType;
 import org.example.backendyosrmegaapp.JWT.JwtUtils;
 import org.example.backendyosrmegaapp.Repositories.UserRepository;
 import org.example.backendyosrmegaapp.Services.FileStorageService;
+import org.example.backendyosrmegaapp.Services.OtpService;
 import org.example.backendyosrmegaapp.Services.UserService;
 import org.example.backendyosrmegaapp.entities.*;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,6 +23,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 
 @CrossOrigin(origins = "*")
 @RestController
@@ -31,6 +33,8 @@ public class UserController {
     private ObjectMapper objectMapper;
     @Autowired
     FileStorageService fileStorageService;
+    @Autowired
+    OtpService otpService;
     @Autowired
     AuthenticationManager authenticationManager;
     @Autowired
@@ -60,13 +64,62 @@ public class UserController {
 
 
 
+        UserDetailsImpl userDetails =
+                (UserDetailsImpl) authentication.getPrincipal();
+
+
+        User user =
+                userRepository.findByEmail(
+                                userDetails.getEmail()
+                        )
+                        .orElseThrow(
+                                () -> new RuntimeException("User not found")
+                        );
+
+
+// ==============================
+// Vérification 2FA
+// ==============================
+
+        if(Boolean.TRUE.equals(user.getTwoFactorEnabled())){
+
+
+            String otp =
+                    otpService.generateOtp(user);
+
+
+            // TEMPORAIRE POUR TEST
+            System.out.println(
+                    "OTP = " + otp
+            );
+
+
+            return ResponseEntity.ok(
+                    Map.of(
+                            "status",
+                            "OTP_REQUIRED",
+
+                            "userId",
+                            user.getId(),
+
+                            "method",
+                            user.getTwoFactorMethod()
+                    )
+            );
+
+        }
+
+
+
+// ==============================
+// Pas de 2FA
+// Génération JWT normale
+// ==============================
+
+
         String jwt =
                 jwtUtils.generateJwtToken(authentication);
 
-
-
-        UserDetailsImpl userDetails =
-                (UserDetailsImpl) authentication.getPrincipal();
 
 
 

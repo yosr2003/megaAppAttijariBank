@@ -65,7 +65,12 @@ if (!permission) {
           {
             text: "OK",
             onPress: () => {
-              router.replace("/(auth)/login");
+              router.replace({
+              pathname: "/(auth)/enable-2fa",
+              params: {
+                  userId,
+              },
+          });
             },
           },
         ]
