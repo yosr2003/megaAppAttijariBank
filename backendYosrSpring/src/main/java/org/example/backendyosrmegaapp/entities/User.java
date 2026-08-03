@@ -83,6 +83,8 @@ public class User {
     @Enumerated(EnumType.STRING)
     private TwoFactorMethod twoFactorMethod;
 
+    @Column(name = "two_factor_secret")
+    private String twoFactorSecret;
 
     @Column(nullable = false)
     private Boolean twoFactorEnabled = false;
