@@ -10,11 +10,15 @@ import { useIsFocused } from '@react-navigation/native';
 import { StarField, Card } from '@/src/components/ui';
 import { useDb } from '@/src/hooks/use-db';
 import { useFormValidation } from '@/src/hooks/use-form-validation';
-import { dbService, P2PProduct, P2PFavorite } from '@/src/services/db-service';
+import { dbService, P2PProduct, P2PFavorite, WalletCard } from '@/src/services/db-service';
 import { format, V } from '@/src/utils/form-validation';
+import { AddressPickerModal } from '@/src/features/food-delivery/components/AddressPickerModal';
+import { FaceIdModal } from '@/src/features/food-delivery/components/FaceIdModal';
+import { SavedAddress } from '@/src/features/food-delivery/types';
 
 const CATEGORIES = ['Tous', 'Électronique', 'Véhicules', 'Habillement', 'Maison', 'Loisirs', 'Autre'];
 const LOCATIONS = ['Tunis, La Marsa', 'Sousse, Kantaoui', 'Sfax, Ville', 'Djerba, Midoun', 'Nabeul, Hammamet', 'Bizerte, Corniche', 'Monastir, Skanes'];
+
 
 export function P2PMarketplaceScreen() {
   const isFocused = useIsFocused();
@@ -37,9 +41,12 @@ export function P2PMarketplaceScreen() {
   const [isDetailModalVisible, setIsDetailModalVisible] = useState(false);
   const [isFilterModalVisible, setIsFilterModalVisible] = useState(false);
   const [isChatModalVisible, setIsChatModalVisible] = useState(false);
+  const [isMapVisible, setIsMapVisible] = useState(false);
+  const [isFaceIdVisible, setIsFaceIdVisible] = useState(false);
 
   // Selected Product Detail
   const [selectedProduct, setSelectedProduct] = useState<P2PProduct | null>(null);
+  const [productToBuy, setProductToBuy] = useState<P2PProduct | null>(null);
 
   // Mock Chat State
   const [chatMessage, setChatMessage] = useState('');
@@ -54,18 +61,21 @@ export function P2PMarketplaceScreen() {
   const [sellLocation, setSellLocation] = useState('Tunis, La Marsa');
   const [sellContact, setSellContact] = useState('+216 ');
   const [sellImages, setSellImages] = useState<string[]>([]);
+  const [userCards, setUserCards] = useState<WalletCard[]>([]);
 
   // Load Marketplace Products & Favorites
   const loadProducts = async () => {
     if (!userId) return;
     try {
       setLoading(true);
-      const [list, favs] = await Promise.all([
+      const [list, favs, cards] = await Promise.all([
         dbService.getP2PProducts(),
-        dbService.getP2PFavorites(userId)
+        dbService.getP2PFavorites(userId),
+        dbService.getCards(userId)
       ]);
       setProducts(list);
       setFavorites(favs);
+      setUserCards(cards);
     } catch (e) {
       console.error("Error loading products:", e);
     } finally {
@@ -188,6 +198,69 @@ export function P2PMarketplaceScreen() {
     } catch (e) {
       console.error("Publishing product failed:", e);
       Alert.alert("Erreur", "Impossible de publier l'annonce.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Helper to parse location and lat/lng
+  const parseLocation = (locStr: string) => {
+    const parts = (locStr || '').split('|');
+    const address = parts[0] || 'Tunis, Tunisie';
+    const lat = parts[1] ? parseFloat(parts[1]) : 36.8008;
+    const lng = parts[2] ? parseFloat(parts[2]) : 10.18;
+    const hasCoordinates = parts.length >= 3;
+    return { address, lat, lng, hasCoordinates };
+  };
+
+  // P2P purchase workflow
+  const handleInitiateP2PBuy = (product: P2PProduct) => {
+    const walletBalance = userCards.reduce((acc, c) => acc + (c.balance || 0), 0);
+    if (walletBalance < product.price) {
+      Alert.alert(
+        "Solde insuffisant",
+        `Le solde de votre portefeuille (${walletBalance.toFixed(3)} TND) est insuffisant pour acheter cet article à ${Number(product.price).toFixed(3)} TND.`
+      );
+      return;
+    }
+    setProductToBuy(product);
+    setIsFaceIdVisible(true);
+  };
+
+  const handleP2PBuySuccess = async () => {
+    if (!productToBuy || !userId) return;
+    setIsFaceIdVisible(false);
+    try {
+      setLoading(true);
+      const activeCard = userCards[0];
+      if (activeCard && activeCard.id) {
+        const newBal = Math.max(0, activeCard.balance - productToBuy.price);
+        await dbService.updateCardBalance(activeCard.id, newBal);
+      }
+      
+      // Log transaction with escrow status
+      await dbService.createTransaction({
+        user_id: userId,
+        card_id: activeCard?.id || null,
+        title: `Escrow: ${productToBuy.title}`,
+        category: "Marketplace",
+        amount: -productToBuy.price,
+        currency: "TND",
+        icon: "lock-closed-outline"
+      });
+
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Alert.alert(
+        "Achat Séquestre Actif 🔒",
+        `Félicitations! Le paiement de ${Number(productToBuy.price).toFixed(3)} TND a été sécurisé en escrow. Veuillez scanner le code QR du vendeur lors de la remise physique pour débloquer les fonds.`
+      );
+      
+      setIsDetailModalVisible(false);
+      setProductToBuy(null);
+      loadProducts();
+    } catch (e) {
+      console.error("Escrow purchase failed:", e);
+      Alert.alert("Erreur", "L'achat a échoué.");
     } finally {
       setLoading(false);
     }
@@ -475,22 +548,20 @@ export function P2PMarketplaceScreen() {
 
               {/* Location & Contact */}
               <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Emplacement</Text>
-                <View style={styles.badgeSelectorRow}>
-                  {LOCATIONS.map((loc) => {
-                    const isActive = sellLocation === loc;
-                    return (
-                      <Pressable 
-                        key={loc} 
-                        style={[styles.badgeSelectorItem, isActive && styles.badgeSelectorItemActive, { marginBottom: 6 }]}
-                        onPress={() => setSellLocation(loc)}
-                      >
-                        <Text style={[styles.badgeSelectorText, isActive && styles.badgeSelectorTextActive]}>
-                          {loc.split(',')[0]}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
+                <Text style={styles.inputLabel}>Emplacement de l'échange</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                  <View style={{ flex: 1, backgroundColor: '#091E36', borderRadius: 12, borderWidth: 1, borderColor: '#1B5B9F50', paddingHorizontal: 14, paddingVertical: 12, justifyContent: 'center' }}>
+                    <Text style={{ color: '#F7FAFF', fontSize: 13 }} numberOfLines={1}>
+                      {sellLocation.split('|')[0]}
+                    </Text>
+                  </View>
+                  <Pressable 
+                    style={{ backgroundColor: '#2F80ED20', borderColor: '#2F80ED', borderWidth: 1.2, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, flexDirection: 'row', alignItems: 'center', gap: 6 }}
+                    onPress={() => setIsMapVisible(true)}
+                  >
+                    <Ionicons name="map-outline" size={16} color="#2F80ED" />
+                    <Text style={{ color: '#2F80ED', fontSize: 13, fontWeight: '700' }}>Carte 🗺️</Text>
+                  </Pressable>
                 </View>
               </View>
 
@@ -608,9 +679,28 @@ export function P2PMarketplaceScreen() {
                   <View style={styles.specDivider} />
                   <View style={styles.specRow}>
                     <Text style={styles.specLabel}>Emplacement</Text>
-                    <Text style={styles.specVal}>{selectedProduct.location}</Text>
+                    <Text style={styles.specVal}>{parseLocation(selectedProduct.location).address}</Text>
                   </View>
                 </Card>
+
+                {/* Mini OSM Map Display */}
+                {parseLocation(selectedProduct.location).hasCoordinates && (
+                  <View style={{ borderRadius: 16, overflow: 'hidden', borderWidth: 1, borderColor: '#1B5B9F40', height: 130, position: 'relative', marginTop: 4 }}>
+                    <Image 
+                      source={{ uri: `https://tile.openstreetmap.org/15/${Math.floor(((parseLocation(selectedProduct.location).lng + 180) / 360) * Math.pow(2, 15))}/${Math.floor(((1 - Math.log(Math.tan((parseLocation(selectedProduct.location).lat * Math.PI) / 180) + 1 / Math.cos((parseLocation(selectedProduct.location).lat * Math.PI) / 180)) / Math.PI) / 2) * Math.pow(2, 15))}.png` }}
+                      style={{ width: '100%', height: '100%', opacity: 0.85 }}
+                      resizeMode="cover"
+                    />
+                    <View style={{ ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(9, 30, 54, 0.25)' }} />
+                    <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, justifyContent: 'center', alignItems: 'center' }}>
+                      <Ionicons name="location-sharp" size={32} color="#FFC244" />
+                      <View style={{ width: 8, height: 3, borderRadius: 4, backgroundColor: 'rgba(0,0,0,0.4)', marginTop: -2 }} />
+                    </View>
+                    <View style={{ position: 'absolute', bottom: 8, right: 8, backgroundColor: 'rgba(9, 30, 54, 0.85)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, borderWidth: 1, borderColor: '#FFC24430' }}>
+                      <Text style={{ color: '#FFC244', fontSize: 10, fontWeight: '700' }}>OSM Live Map</Text>
+                    </View>
+                  </View>
+                )}
 
                 {/* Description */}
                 <View style={styles.descSection}>
@@ -635,11 +725,19 @@ export function P2PMarketplaceScreen() {
                 {/* Actions Buttons */}
                 <View style={styles.rowButtons}>
                   <Pressable 
+                    style={[styles.buttonSubmit, { backgroundColor: '#FFC244', marginRight: 6 }]}
+                    onPress={() => handleInitiateP2PBuy(selectedProduct)}
+                  >
+                    <Ionicons name="lock-closed" size={18} color="#000" style={{ marginRight: 6 }} />
+                    <Text style={[styles.buttonSubmitText, { color: '#000', fontWeight: '800' }]}>Acheter (Escrow)</Text>
+                  </Pressable>
+                  
+                  <Pressable 
                     style={[styles.buttonSubmit, { backgroundColor: '#12C979' }]}
                     onPress={() => openChatWithSeller(selectedProduct)}
                   >
                     <Ionicons name="chatbubbles-outline" size={18} color="#F7FAFF" style={{ marginRight: 6 }} />
-                    <Text style={styles.buttonSubmitText}>Envoyer un Message</Text>
+                    <Text style={styles.buttonSubmitText}>Négocier</Text>
                   </Pressable>
                 </View>
               </ScrollView>
@@ -776,6 +874,29 @@ export function P2PMarketplaceScreen() {
           </View>
         </SafeAreaView>
       </Modal>
+
+      {/* AddressPickerModal */}
+      <AddressPickerModal
+        visible={isMapVisible}
+        onClose={() => setIsMapVisible(false)}
+        onSaveAddress={(savedAddress) => {
+          setSellLocation(`${savedAddress.address}|${savedAddress.latitude}|${savedAddress.longitude}`);
+          setIsMapVisible(false);
+        }}
+      />
+
+      {/* FaceIdModal */}
+      <FaceIdModal
+        visible={isFaceIdVisible}
+        onCancel={() => {
+          setIsFaceIdVisible(false);
+          setProductToBuy(null);
+        }}
+        onSuccess={handleP2PBuySuccess}
+        amountText={`${productToBuy ? Number(productToBuy.price).toFixed(3) : '0.000'} TND`}
+        restaurantName={productToBuy ? productToBuy.title : ''}
+        paymentMethodText="SuperTounsi Wallet"
+      />
     </SafeAreaView>
   );
 }

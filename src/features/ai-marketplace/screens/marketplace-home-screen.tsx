@@ -27,6 +27,7 @@ import {
 import { useTheme } from "@/src/hooks/use-theme";
 import { useFormValidation } from "@/src/hooks/use-form-validation";
 import { format, V } from "@/src/utils/form-validation";
+import { FaceIdModal } from "@/src/features/food-delivery/components/FaceIdModal";
 
 export function MarketplaceHomeScreen({
   embedded = false,
@@ -48,6 +49,7 @@ export function MarketplaceHomeScreen({
   // Modals Visibility
   const [isPublishModalVisible, setIsPublishModalVisible] = useState(false);
   const [isCheckoutModalVisible, setIsCheckoutModalVisible] = useState(false);
+  const [isFaceIdVisible, setIsFaceIdVisible] = useState(false);
   const [selectedItem, setSelectedItem] = useState<MarketplaceItem | null>(
     null,
   );
@@ -153,7 +155,7 @@ export function MarketplaceHomeScreen({
   };
 
   // Confirm Subscription (CRUD: Create Subscription, Update Card Balance, Create Transaction)
-  const handleConfirmSubscription = async () => {
+  const handleConfirmSubscription = () => {
     if (!userId || !selectedItem) return;
 
     const isValid = validate({
@@ -176,6 +178,18 @@ export function MarketplaceHomeScreen({
       );
       return;
     }
+
+    setIsFaceIdVisible(true);
+  };
+
+  const handlePerformSubscription = async () => {
+    if (!userId || !selectedItem) return;
+    setIsFaceIdVisible(false);
+
+    const selectedCard = cards.find((c) => c.id === selectedCardId);
+    if (!selectedCard) return;
+
+    const totalCost = Number(selectedItem.price_amount) * subDuration;
 
     try {
       setLoading(true);
@@ -894,6 +908,20 @@ export function MarketplaceHomeScreen({
           </View>
         </View>
       </Modal>
+
+      {/* FaceIdModal for AI Subscription */}
+      <FaceIdModal
+        visible={isFaceIdVisible}
+        onCancel={() => setIsFaceIdVisible(false)}
+        onSuccess={handlePerformSubscription}
+        amountText={`${selectedItem ? (Number(selectedItem.price_amount) * subDuration).toFixed(3) : '0.000'} TND`}
+        restaurantName={selectedItem ? selectedItem.title : ''}
+        paymentMethodText={
+          cards.find((c) => c.id === selectedCardId)
+            ? `${cards.find((c) => c.id === selectedCardId)?.card_type} •••• ${cards.find((c) => c.id === selectedCardId)?.card_number.slice(-4)}`
+            : 'SuperTounsi Wallet'
+        }
+      />
     </>
   );
 
