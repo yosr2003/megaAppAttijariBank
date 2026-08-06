@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { SafeAreaView, StatusBar, View, Text, Pressable, ScrollView } from 'react-native';
+import { SafeAreaView, StatusBar, View, Text, Pressable } from 'react-native';
+import Animated, { useAnimatedStyle, withSpring, useSharedValue } from 'react-native-reanimated';
 import { StarField } from '@/src/components/ui';
 import { MarketplaceHomeScreen } from '@/src/features/ai-marketplace';
 import { P2PMarketplaceScreen } from '@/src/features/p2p-marketplace/screens/p2p-marketplace-screen';
@@ -9,108 +10,142 @@ export function UnifiedMarketplaceScreen() {
   const [activeTab, setActiveTab] = useState<'products' | 'services'>('products');
   const theme = useTheme();
 
+  // Shared value: 0 = products (left), 1 = services (right)
+  const tabOffset = useSharedValue(0);
+
+  const handleSetTab = (tab: 'products' | 'services') => {
+    setActiveTab(tab);
+    tabOffset.value = tab === 'products' ? 0 : 1;
+  };
+
+  const sliderStyle = useAnimatedStyle(() => {
+    return {
+      transform: [
+        {
+          translateX: withSpring(tabOffset.value * 150, {
+            damping: 18,
+            stiffness: 140,
+          }),
+        },
+      ],
+    };
+  });
+
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: theme.colors.background }}>
       <StatusBar style="light" />
       {theme.mode === 'dark' && <StarField />}
-      
-      {/* Ambient glow similar to other screens */}
-      <View style={{ 
+
+      {/* Ambient top-right glow */}
+      <View style={{
         position: 'absolute',
-        top: -50,
-        right: -20,
-        width: 250,
-        height: 250,
-        borderRadius: 125,
-        backgroundColor: theme.colors.primary,
-        opacity: 0.12,
-        shadowColor: theme.colors.primary,
-        shadowOffset: { width: 0, height: 0 },
-        shadowOpacity: 0.4,
-        shadowRadius: 50,
+        top: -80,
+        right: -40,
+        width: 280,
+        height: 280,
+        borderRadius: 140,
+        backgroundColor: '#2F80ED',
+        opacity: 0.18,
+      }} />
+      {/* Ambient bottom-left glow */}
+      <View style={{
+        position: 'absolute',
+        bottom: 100,
+        left: -60,
+        width: 200,
+        height: 200,
+        borderRadius: 100,
+        backgroundColor: '#7B2FBE',
+        opacity: 0.10,
       }} />
 
       {/* Header */}
-      <View style={{ 
-        flexDirection: 'row', 
-        justifyContent: 'space-between', 
-        alignItems: 'center', 
-        paddingHorizontal: 20, 
-        paddingTop: 16, 
-        paddingBottom: 10 
+      <View style={{
+        paddingHorizontal: 22,
+        paddingTop: 18,
+        paddingBottom: 14,
       }}>
-        <View>
-          <Text style={{ 
-            fontSize: 11, 
-            fontWeight: '700', 
-            color: theme.colors.textSecondary, 
-            letterSpacing: 1.5, 
-            marginBottom: 4 
-          }}>
-            MARKETPLACE
-          </Text>
-          <Text style={{ 
-            fontSize: 28, 
-            fontWeight: '800', 
-            color: theme.colors.textPrimary 
-          }}>
-            Super Marketplace
-          </Text>
-        </View>
-      </View>
-
-      {/* Segmented Tabs */}
-      <View style={{ paddingHorizontal: 20, marginBottom: 16 }}>
-        <View style={{ 
-          flexDirection: 'row', 
-          borderRadius: 24, 
-          borderWidth: 1, 
-          borderColor: theme.colors.border + '30', 
-          padding: 3, 
-          backgroundColor: theme.colors.surface + '80' 
+        <Text style={{
+          fontSize: 11,
+          fontWeight: '700',
+          color: '#2F80ED',
+          letterSpacing: 2.5,
+          marginBottom: 4,
+          textTransform: 'uppercase',
         }}>
+          Super Tounsii
+        </Text>
+        <Text style={{
+          fontSize: 30,
+          fontWeight: '800',
+          color: theme.colors.textPrimary,
+          letterSpacing: -0.5,
+        }}>
+          Marketplace
+        </Text>
+      </View>
+
+      {/* Segmented control */}
+      <View style={{ paddingHorizontal: 20, marginBottom: 12 }}>
+        <View style={{
+          flexDirection: 'row',
+          borderRadius: 28,
+          borderWidth: 1,
+          borderColor: 'rgba(47, 128, 237, 0.3)',
+          padding: 4,
+          backgroundColor: 'rgba(47, 128, 237, 0.08)',
+          position: 'relative',
+          height: 50,
+          alignItems: 'center',
+        }}>
+          {/* Sliding pill indicator — pointerEvents none so taps pass through to Pressables */}
+          <Animated.View
+            pointerEvents="none"
+            style={[{
+            position: 'absolute',
+            width: '50%',
+            height: 42,
+            borderRadius: 22,
+            backgroundColor: '#2F80ED',
+            left: 4,
+            shadowColor: '#2F80ED',
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.5,
+            shadowRadius: 10,
+            elevation: 8,
+          }, sliderStyle]} />
+
           <Pressable
-            onPress={() => setActiveTab('products')}
-            style={{ 
-              flex: 1, 
-              alignItems: 'center', 
-              justifyContent: 'center', 
-              paddingVertical: 10, 
-              borderRadius: 20,
-              backgroundColor: activeTab === 'products' ? theme.colors.primary : 'transparent'
-            }}
+            onPress={() => handleSetTab('products')}
+            style={{ flex: 1, alignItems: 'center', justifyContent: 'center', zIndex: 10 }}
           >
-            <Text style={{ 
-              fontSize: 14, 
-              fontWeight: '600', 
-              color: activeTab === 'products' ? theme.colors.primaryOn : theme.colors.textSecondary 
+            <Text style={{
+              fontSize: 14,
+              fontWeight: '700',
+              color: activeTab === 'products' ? '#FFFFFF' : 'rgba(255,255,255,0.5)',
+              letterSpacing: 0.3,
             }}>
-              Produits
+              🛍️ Produits
             </Text>
           </Pressable>
+
           <Pressable
-            onPress={() => setActiveTab('services')}
-            style={{ 
-              flex: 1, 
-              alignItems: 'center', 
-              justifyContent: 'center', 
-              paddingVertical: 10, 
-              borderRadius: 20,
-              backgroundColor: activeTab === 'services' ? theme.colors.primary : 'transparent'
-            }}
+            onPress={() => handleSetTab('services')}
+            style={{ flex: 1, alignItems: 'center', justifyContent: 'center', zIndex: 10 }}
           >
-            <Text style={{ 
-              fontSize: 14, 
-              fontWeight: '600', 
-              color: activeTab === 'services' ? theme.colors.primaryOn : theme.colors.textSecondary 
+            <Text style={{
+              fontSize: 14,
+              fontWeight: '700',
+              color: activeTab === 'services' ? '#FFFFFF' : 'rgba(255,255,255,0.5)',
+              letterSpacing: 0.3,
             }}>
-              Services & Apps
+              🤖 Services AI
             </Text>
           </Pressable>
         </View>
       </View>
 
-      {/* Content based on active tab */}
+      {/* Content */}
       <View style={{ flex: 1 }}>
         {activeTab === 'products' ? (
           <P2PMarketplaceScreen />

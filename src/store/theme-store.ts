@@ -32,7 +32,7 @@ export const useThemeStore = create<ThemeState>()(
       },
     }),
     {
-      name: 'supertounsii-theme-storage',
+      name: 'supertounsii-theme-storage-v3',
       storage: createJSONStorage(() => AsyncStorage),
     }
   )

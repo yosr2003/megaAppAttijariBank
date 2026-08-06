@@ -1,12 +1,14 @@
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, Text, View, Pressable, ScrollView, ActivityIndicator } from 'react-native';
+import { StyleSheet, Text, View, Pressable, ScrollView, ActivityIndicator, Alert, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRouter } from 'expo-router';
+import * as Haptics from 'expo-haptics';
 import { Screen, GlassCard, SectionTitle } from '@/src/components/ui';
 import { useTheme } from '@/src/hooks/use-theme';
-import { dbService, DbOrder, DbOrderItem, MarketplaceSubscription } from '@/src/services/db-service';
+import { dbService, DbOrder, DbOrderItem } from '@/src/services/db-service';
 import { TEST_USER_ID } from '@/src/hooks/use-db';
+import { useFoodCartStore } from '@/src/store/food-cart-store';
 
 interface CombinedOrder {
   id: string;
@@ -24,9 +26,16 @@ interface CombinedOrder {
 export function OrderHistoryScreen() {
   const router = useRouter();
   const theme = useTheme();
+  const { addItem, clearCart } = useFoodCartStore();
   const [activeTab, setActiveTab] = useState<'ALL' | 'FOOD' | 'MARKETPLACE'>('ALL');
   const [loading, setLoading] = useState(true);
   const [combinedOrders, setCombinedOrders] = useState<CombinedOrder[]>([]);
+
+  // Rating Modal state
+  const [isRatingModalVisible, setIsRatingModalVisible] = useState(false);
+  const [ratingOrder, setRatingOrder] = useState<CombinedOrder | null>(null);
+  const [restaurantRating, setRestaurantRating] = useState(5);
+  const [driverRating, setDriverRating] = useState(5);
 
   const fetchHistory = async () => {
     try {
@@ -64,7 +73,6 @@ export function OrderHistoryScreen() {
         itemsText: s.marketplace_items?.description || 'Service digital',
       }));
 
-      // Combine and sort by date descending
       const all = [...formattedFood, ...formattedMarketplace].sort(
         (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
       );
@@ -80,6 +88,50 @@ export function OrderHistoryScreen() {
   useEffect(() => {
     fetchHistory();
   }, []);
+
+  const handleReorder = async (order: CombinedOrder) => {
+    if (!order.rawOrder) return;
+    try {
+      clearCart();
+      const restaurantMock = {
+        id: "1", // Map to default Dar Zaman info
+        name: order.title,
+        deliveryFee: 4.5,
+        minOrder: 15.0
+      };
+
+      order.rawOrder.items.forEach((item) => {
+        addItem(restaurantMock, {
+          menuItemId: item.id || "101",
+          name: item.name,
+          price: item.price,
+          quantity: item.quantity,
+          extras: []
+        });
+      });
+
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Alert.alert(
+        "Panier Reconstitué! 🛒",
+        "Les articles de votre commande précédente ont été ajoutés au panier. Vous allez être redirigé vers le panier.",
+        [
+          { text: "Voir le panier", onPress: () => router.push("/food-delivery/cart" as any) }
+        ]
+      );
+    } catch (err) {
+      console.error("Reorder failed:", err);
+      Alert.alert("Erreur", "Impossible de commander à nouveau.");
+    }
+  };
+
+  const submitReview = async () => {
+    setIsRatingModalVisible(false);
+    await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    Alert.alert(
+      "Avis Enregistré! ⭐",
+      `Merci d'avoir noté le restaurant (${restaurantRating}/5) et le livreur (${driverRating}/5). Votre retour est précieux pour la communauté SuperTounsi !`
+    );
+  };
 
   const filteredOrders = combinedOrders.filter((item) => {
     if (activeTab === 'FOOD') return item.type === 'FOOD';
@@ -201,19 +253,81 @@ export function OrderHistoryScreen() {
                     </Text>
 
                     {order.type === 'FOOD' && (
-                      <Pressable
-                        style={styles.trackBtn}
-                        onPress={() => router.push('/food-delivery/order-tracking' as any)}
-                      >
-                        <Ionicons name="location-sharp" size={16} color="#000000" />
-                        <Text style={styles.trackBtnText}>Suivre en direct</Text>
-                      </Pressable>
+                      <View style={{ flexDirection: 'row', gap: 6 }}>
+                        <Pressable
+                          style={[styles.trackBtn, { backgroundColor: 'transparent', borderColor: theme.colors.border, borderWidth: 1 }]}
+                          onPress={() => {
+                            setRatingOrder(order);
+                            setRestaurantRating(5);
+                            setDriverRating(5);
+                            setIsRatingModalVisible(true);
+                          }}
+                        >
+                          <Ionicons name="star-outline" size={14} color={theme.colors.textPrimary} />
+                          <Text style={[styles.trackBtnText, { color: theme.colors.textPrimary }]}>Noter</Text>
+                        </Pressable>
+                        <Pressable
+                          style={styles.trackBtn}
+                          onPress={() => handleReorder(order)}
+                        >
+                          <Ionicons name="refresh" size={14} color="#000000" />
+                          <Text style={styles.trackBtnText}>Recommander</Text>
+                        </Pressable>
+                      </View>
                     )}
                   </View>
                 </GlassCard>
               </View>
             ))}
         </ScrollView>
+
+        {/* ⭐ RATING MODAL DIALOG */}
+        <Modal visible={isRatingModalVisible} transparent animationType="fade">
+          <View style={{ flex: 1, backgroundColor: 'rgba(3, 12, 22, 0.9)', justifyContent: 'center', alignItems: 'center' }}>
+            <View style={{ backgroundColor: theme.colors.surface, width: '90%', borderRadius: 24, padding: 24, borderColor: '#2F80ED40', borderWidth: 1.2, gap: 16 }}>
+              <Text style={{ fontSize: 18, fontWeight: '800', color: theme.colors.textPrimary, borderBottomWidth: 1, borderBottomColor: theme.colors.border + '20', paddingBottom: 10 }}>Noter votre commande</Text>
+              
+              {/* Restaurant Rating */}
+              <View style={{ gap: 6 }}>
+                <Text style={{ fontSize: 14, fontWeight: '600', color: theme.colors.textSecondary }}>Qualité du Restaurant :</Text>
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <Pressable key={star} onPress={() => setRestaurantRating(star)}>
+                      <Ionicons name={star <= restaurantRating ? "star" : "star-outline"} size={28} color="#FFC244" />
+                    </Pressable>
+                  ))}
+                </View>
+              </View>
+
+              {/* Driver Rating */}
+              <View style={{ gap: 6 }}>
+                <Text style={{ fontSize: 14, fontWeight: '600', color: theme.colors.textSecondary }}>Qualité du Livreur :</Text>
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <Pressable key={star} onPress={() => setDriverRating(star)}>
+                      <Ionicons name={star <= driverRating ? "star" : "star-outline"} size={28} color="#FFC244" />
+                    </Pressable>
+                  ))}
+                </View>
+              </View>
+
+              <View style={{ flexDirection: 'row', gap: 10, marginTop: 10 }}>
+                <Pressable
+                  style={{ flex: 1, borderColor: theme.colors.border, borderWidth: 1, borderRadius: 16, paddingVertical: 12, alignItems: 'center' }}
+                  onPress={() => setIsRatingModalVisible(false)}
+                >
+                  <Text style={{ color: theme.colors.textSecondary, fontWeight: '700' }}>Annuler</Text>
+                </Pressable>
+                <Pressable
+                  style={{ flex: 1, backgroundColor: '#FFC244', borderRadius: 16, paddingVertical: 12, alignItems: 'center' }}
+                  onPress={submitReview}
+                >
+                  <Text style={{ color: '#000000', fontWeight: '800' }}>Soumettre</Text>
+                </Pressable>
+              </View>
+            </View>
+          </View>
+        </Modal>
       </SafeAreaView>
     </Screen>
   );
@@ -314,7 +428,7 @@ const styles = StyleSheet.create({
   },
   trackBtn: {
     backgroundColor: '#FFC244',
-    paddingHorizontal: 14,
+    paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 16,
     flexDirection: 'row',
@@ -323,7 +437,7 @@ const styles = StyleSheet.create({
   },
   trackBtnText: {
     color: '#000000',
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '800',
   },
   actionBtn: {

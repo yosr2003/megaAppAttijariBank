@@ -4,6 +4,7 @@ import { useFoodCartStore } from "@/src/store/food-cart-store";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useState, useMemo } from "react";
+import * as Haptics from "expo-haptics";
 import {
   ActivityIndicator,
   Alert,
@@ -94,6 +95,7 @@ export function RestaurantDetailScreen() {
         extras: [],
       },
     );
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     Alert.alert("Article ajouté 🛒", `${item.name} (x${qty}) a été ajouté à votre panier !`);
   };
 

@@ -8,6 +8,7 @@ import { useTheme } from "@/src/hooks/use-theme";
 import { useFoodCartStore } from "@/src/store/food-cart-store";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import * as Haptics from "expo-haptics";
 import React from "react";
 import {
   Image,
@@ -29,12 +30,14 @@ export function FoodCartScreen() {
     updateQuantity,
     clearCart,
     getSubtotal,
-    getTotal,
+    addItem,
   } = useFoodCartStore();
 
   const subtotal = getSubtotal();
   const deliveryFee = restaurant?.deliveryFee || 0;
-  const total = getTotal();
+  const serviceFee = 0.500;
+  const taxAmount = subtotal * 0.07; // 7% TVA
+  const total = subtotal + deliveryFee + serviceFee;
 
   if (!restaurant || items.length === 0) {
     return (
@@ -262,6 +265,57 @@ export function FoodCartScreen() {
             ))}
           </View>
 
+          {/* Cross-Selling Recommendations */}
+          <View style={{ paddingHorizontal: theme.spacing.md, marginBottom: theme.spacing.md }}>
+            <SectionTitle>Souvent acheté ensemble 🍟</SectionTitle>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10, paddingVertical: 4 }}>
+              {[
+                { id: "991", name: "Frites Croustillantes", price: 3.500, icon: "🍟", desc: "Portion dorée salée" },
+                { id: "992", name: "Coca-Cola Canette", price: 2.200, icon: "🥤", desc: "Soda frais 33cl" },
+                { id: "993", name: "Sauce Harissa Arbi", price: 1.000, icon: "🌶️", desc: "Piquante faite maison" }
+              ].map((rec) => {
+                // If item already in cart, don't show or style differently
+                const isInCart = items.some(i => i.menuItemId === rec.id);
+                return (
+                  <Pressable
+                    key={rec.id}
+                    onPress={() => {
+                      if (restaurant) {
+                        addItem(restaurant, {
+                          menuItemId: rec.id,
+                          name: rec.name,
+                          price: rec.price,
+                          quantity: 1,
+                          extras: []
+                        });
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      }
+                    }}
+                    style={{
+                      width: 140,
+                      backgroundColor: theme.colors.surface,
+                      borderColor: theme.colors.border + '50',
+                      borderWidth: 1,
+                      borderRadius: 16,
+                      padding: 12,
+                      gap: 4
+                    }}
+                  >
+                    <Text style={{ fontSize: 24 }}>{rec.icon}</Text>
+                    <Text style={{ fontSize: 13, fontWeight: '700', color: theme.colors.textPrimary }} numberOfLines={1}>{rec.name}</Text>
+                    <Text style={{ fontSize: 11, color: theme.colors.textSecondary }}>{rec.desc}</Text>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 }}>
+                      <Text style={{ fontSize: 12, fontWeight: '800', color: theme.colors.primary }}>{rec.price.toFixed(3)} DT</Text>
+                      <View style={{ backgroundColor: theme.colors.primary + '20', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8 }}>
+                        <Text style={{ fontSize: 10, fontWeight: '800', color: theme.colors.primary }}>Ajouter +</Text>
+                      </View>
+                    </View>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          </View>
+
           {/* Order Summary */}
           <View
             style={{
@@ -309,6 +363,42 @@ export function FoodCartScreen() {
                   {deliveryFee > 0
                     ? `${deliveryFee.toFixed(3)} TND`
                     : "Gratuite"}
+                </Text>
+              </View>
+              <View style={styles.summaryRow}>
+                <Text
+                  style={[
+                    styles.summaryLabel,
+                    { color: theme.colors.textSecondary },
+                  ]}
+                >
+                  Frais de service SuperTounsi
+                </Text>
+                <Text
+                  style={[
+                    styles.summaryValue,
+                    { color: theme.colors.textPrimary },
+                  ]}
+                >
+                  {serviceFee.toFixed(3)} TND
+                </Text>
+              </View>
+              <View style={styles.summaryRow}>
+                <Text
+                  style={[
+                    styles.summaryLabel,
+                    { color: theme.colors.textSecondary, fontStyle: 'italic' },
+                  ]}
+                >
+                  TVA incluse (7%)
+                </Text>
+                <Text
+                  style={[
+                    styles.summaryValue,
+                    { color: theme.colors.textSecondary, fontStyle: 'italic' },
+                  ]}
+                >
+                  {taxAmount.toFixed(3)} TND
                 </Text>
               </View>
               <View

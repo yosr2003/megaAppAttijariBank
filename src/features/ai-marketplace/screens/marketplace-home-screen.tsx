@@ -2,10 +2,11 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { useIsFocused } from "@react-navigation/native";
 import * as Haptics from "expo-haptics";
 import { StatusBar } from "expo-status-bar";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
     ActivityIndicator,
     Alert,
+    Animated,
     Modal,
     Pressable,
     ScrollView,
@@ -65,6 +66,152 @@ export function MarketplaceHomeScreen({
   const [selectedCardId, setSelectedCardId] = useState<string>("");
   const [subDuration, setSubDuration] = useState<number>(1); // months
 
+  // AI Tool Simulators State
+  const [isToolModalVisible, setIsToolModalVisible] = useState(false);
+  const [activeToolItem, setActiveToolItem] = useState<MarketplaceItem | null>(null);
+
+  // Chrifa AI (Funny Coach)
+  const [chrifaIncome, setChrifaIncome] = useState("1500");
+  const [chrifaExpense, setChrifaExpense] = useState("1000");
+  const [chrifaWastes, setChrifaWastes] = useState<string[]>([]);
+  const [isVoiceRecording, setIsVoiceRecording] = useState(false);
+  const voiceWaveAnim = useRef(new Animated.Value(1)).current;
+  const [voiceTextResult, setVoiceTextResult] = useState<string | null>(null);
+
+  // Tax Helper
+  const [taxRevenue, setTaxRevenue] = useState("25000");
+  const [taxRegime, setTaxRegime] = useState<"Forfaitaire" | "Reel">("Forfaitaire");
+  const [taxChildren, setTaxChildren] = useState<number>(0);
+
+  const startVoiceRecording = () => {
+    setVoiceTextResult(null);
+    setIsVoiceRecording(true);
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(voiceWaveAnim, { toValue: 1.6, duration: 550, useNativeDriver: true }),
+        Animated.timing(voiceWaveAnim, { toValue: 1.0, duration: 550, useNativeDriver: true }),
+      ])
+    ).start();
+
+    setTimeout(async () => {
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setIsVoiceRecording(false);
+
+      const mocks = [
+        {
+          transcript: "Salaire mte3i 2400 DT, w nosrof karib 1800 DT kol chhar. W na9ad dima ndor fel taxis Bolt.",
+          income: "2400",
+          expense: "1800",
+          wastes: ["taxis"]
+        },
+        {
+          transcript: "Ena ndakhel 3500 DT. Ama kol youm nakol mlaoui dehors w nchri kafteji w café direct...",
+          income: "3500",
+          expense: "2200",
+          wastes: ["kafteji", "coffee"]
+        }
+      ];
+
+      const chosen = mocks[Math.floor(Math.random() * mocks.length)];
+      setChrifaIncome(chosen.income);
+      setChrifaExpense(chosen.expense);
+      setChrifaWastes(chosen.wastes);
+      setVoiceTextResult(`Entendu : "${chosen.transcript}"`);
+    }, 2800);
+  };
+
+  const toggleWaste = (waste: string) => {
+    if (chrifaWastes.includes(waste)) {
+      setChrifaWastes(chrifaWastes.filter(w => w !== waste));
+    } else {
+      setChrifaWastes([...chrifaWastes, waste]);
+    }
+  };
+
+  const getChrifaRoast = () => {
+    const income = Number(chrifaIncome) || 0;
+    const expense = Number(chrifaExpense) || 0;
+    
+    if (income === 0) return {
+      roast: "Revenu non renseigné. Veuillez saisir un salaire mensuel valide pour démarrer l'analyse de votre budget.",
+      tips: ["Saisissez vos revenus nets mensuels."]
+    };
+    
+    const ratio = expense / income;
+    let roast = "";
+    let tips = [];
+    
+    if (ratio <= 0.3) {
+      roast = "Excellent contrôle budgétaire! Votre taux d'épargne est supérieur à 70%. C'est idéal pour préparer des projets d'avenir ou faire face aux imprévus. 📈";
+      tips.push("Comme on dit chez nous: 'Mesta7fed yel9a fi el-khsara'. Continuez ainsi!");
+    } else if (ratio <= 0.75) {
+      roast = "Votre budget est globalement équilibré. Cependant, optimiser vos petites dépenses quotidiennes (cafés réguliers, petits repas à emporter) pourrait libérer de l'épargne supplémentaire. ☕";
+      tips.push("Astuce locale: Préparer sa propre nourriture (comme un bon plat maison) réduit le budget alimentation de 25% par rapport aux fast-foods.");
+    } else if (ratio <= 1.0) {
+      roast = "Attention, vous approchez de la limite de votre budget. Vos dépenses mensuelles consomment la quasi-totalité de vos revenus, limitant votre sécurité financière. ⚠️";
+      tips.push("Réduisez l'utilisation des transports privés à la demande (ex: Taxis Bolt) qui pèsent lourd sur le budget transport tunisois.");
+      tips.push("Consultez la section 'Smart Saving' pour automatiser une épargne dès le début du mois.");
+    } else {
+      roast = "Alerte Déficit! Vos dépenses dépassent vos revenus mensuels. Cette situation présente des risques importants d'endettement si elle n'est pas corrigée. 🛑";
+      tips.push("Réduisez immédiatement les dépenses de confort non essentielles.");
+      tips.push("Identifiez vos prélèvements automatiques et abonnements inutiles.");
+      tips.push("Évitez le recours aux découverts bancaires.");
+    }
+
+    if (chrifaWastes.includes("taxis")) {
+      tips.push("🚗 Transport: L'utilisation excessive des applications de taxi privé peut facilement vous coûter plus de 150 DT par mois. Privilégiez le covoiturage ou les transports communs lorsque possible.");
+    }
+    if (chrifaWastes.includes("kafteji")) {
+      tips.push("🌯 Restauration: Les repas pris à l'extérieur quotidiennement représentent une fuite budgétaire majeure. Préparez des paniers repas.");
+    }
+    if (chrifaWastes.includes("coffee")) {
+      tips.push("☕ Cafés récurrents: Acheter plusieurs boissons/cafés par jour représente un coût mensuel caché important.");
+    }
+    if (chrifaWastes.includes("fripe")) {
+      tips.push("Shopping fripe compulsif: Bien que économique au coup par coup, accumuler des achats non nécessaires nuit à votre épargne active.");
+    }
+
+    return { roast, tips };
+  };
+
+  const calculateTunisianTax = () => {
+    const revenue = Number(taxRevenue) || 0;
+    let estimation = 0;
+    let css = 0;
+    let details = "";
+    
+    if (taxRegime === "Forfaitaire") {
+      estimation = Math.max(revenue * 0.01, 150);
+      css = Math.max(revenue * 0.005, 50);
+      details = "Sous le régime forfaitaire tunisien, l'impôt est estimé à 1% du chiffre d'affaires annuel avec un minimum forfaitaire.";
+    } else {
+      const taxable = Math.max(revenue - 5000 - (taxChildren * 500), 0);
+      if (taxable <= 5000) {
+        estimation = 0;
+      } else if (taxable <= 20000) {
+        estimation = (taxable - 5000) * 0.26;
+      } else if (taxable <= 30000) {
+        estimation = 15000 * 0.26 + (taxable - 20000) * 0.28;
+      } else {
+        estimation = 15000 * 0.26 + 10000 * 0.28 + (taxable - 30000) * 0.32;
+      }
+      css = taxable * 0.0075;
+      details = "Calculé avec le barème progressif de l'impôt sur le revenu des personnes physiques (IRPP) avec déduction pour enfants.";
+    }
+    
+    return {
+      tax: estimation,
+      css,
+      total: estimation + css,
+      details
+    };
+  };
+
+  const handleLaunchTool = (item: MarketplaceItem) => {
+    setActiveToolItem(item);
+    setIsToolModalVisible(true);
+  };
+
   const loadMarketplaceData = async () => {
     if (!userId) return;
     try {
@@ -74,7 +221,20 @@ export function MarketplaceHomeScreen({
         dbService.getSubscriptions(userId),
         dbService.getCards(userId),
       ]);
-      setItems(catalogItems);
+      
+      const mapped = catalogItems.map((item) => {
+        if (item.title === 'Smart Commerce AI') {
+          return {
+            ...item,
+            title: 'Mestahfed AI - Coach Budget',
+            description: 'Un assistant budgétaire intelligent qui analyse vos dépenses mensuelles et vous donne des conseils malins basés sur le coût de la vie en Tunisie.',
+            icon: 'trending-up-outline',
+          };
+        }
+        return item;
+      });
+
+      setItems(mapped);
       setSubscriptions(userSubs);
       setCards(userCards);
 
@@ -223,9 +383,10 @@ export function MarketplaceHomeScreen({
       setSelectedItem(null);
       setSubDuration(1);
       loadMarketplaceData(); // Reload
-    } catch (e) {
+    } catch (e: any) {
       console.error("Subscription purchase failed:", e);
-      Alert.alert("Erreur", "L'achat de l'abonnement a échoué.");
+      const errMsg = e.response?.data?.message || e.message || String(e);
+      Alert.alert("Erreur", `L'achat de l'abonnement a échoué: ${errMsg}`);
     } finally {
       setLoading(false);
     }
@@ -291,8 +452,14 @@ export function MarketplaceHomeScreen({
                   style={[
                     styles.itemCard,
                     {
-                      backgroundColor: theme.colors.surface,
-                      borderColor: theme.colors.border,
+                      backgroundColor: 'rgba(47, 128, 237, 0.08)',
+                      borderColor: 'rgba(47, 128, 237, 0.25)',
+                      borderWidth: 1.2,
+                      shadowColor: '#2F80ED',
+                      shadowOpacity: 0.2,
+                      shadowRadius: 12,
+                      shadowOffset: { width: 0, height: 6 },
+                      elevation: 6,
                     },
                   ]}
                 >
@@ -357,21 +524,21 @@ export function MarketplaceHomeScreen({
                         borderColor: theme.colors.border,
                       },
                       active && {
-                        backgroundColor: theme.colors.success + "15",
-                        borderColor: theme.colors.success + "40",
+                        backgroundColor: '#2F80ED20',
+                        borderColor: '#2F80ED',
                       },
                     ]}
-                    onPress={() => handlePressSubscribe(item)}
+                    onPress={() => active ? handleLaunchTool(item) : handlePressSubscribe(item)}
                   >
                     <Text
                       style={[
                         styles.subscribeBtnText,
                         active && styles.subscribeBtnTextActive,
                         { color: theme.colors.primary },
-                        active && { color: theme.colors.success },
+                        active && { color: '#2F80ED' },
                       ]}
                     >
-                      {active ? "Déjà abonné" : "S'abonner"}
+                      {active ? "Lancer l'outil ⚡" : "S'abonner"}
                     </Text>
                   </Pressable>
                 </Card>
@@ -922,6 +1089,285 @@ export function MarketplaceHomeScreen({
             : 'SuperTounsi Wallet'
         }
       />
+
+      {/* VOICE RECORDING OVERLAY MODAL */}
+      <Modal visible={isVoiceRecording} transparent animationType="fade">
+        <View style={[styles.modalOverlay, { backgroundColor: 'rgba(3, 12, 22, 0.92)' }]}>
+          <View style={{ alignItems: 'center', gap: 20 }}>
+            <Animated.View style={{
+              width: 80,
+              height: 80,
+              borderRadius: 40,
+              backgroundColor: 'rgba(47, 128, 237, 0.15)',
+              justifyContent: 'center',
+              alignItems: 'center',
+              transform: [{ scale: voiceWaveAnim }]
+            }}>
+              <View style={{ width: 50, height: 50, borderRadius: 25, backgroundColor: '#2F80ED', justifyContent: 'center', alignItems: 'center' }}>
+                <Ionicons name="mic" size={24} color="#F7FAFF" />
+              </View>
+            </Animated.View>
+            <Text style={{ color: '#F7FAFF', fontSize: 16, fontWeight: '700' }}>Mestahfed AI à l'écoute...</Text>
+            <Text style={{ color: '#7891B2', fontSize: 13 }}>Parlez en Derja (ex: "Salaire mte3i 2400...")</Text>
+          </View>
+        </View>
+      </Modal>
+
+      {/* 3. INTERACTIVE AI TOOL SIMULATOR MODAL */}
+      <Modal
+        visible={isToolModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setIsToolModalVisible(false)}
+      >
+        <View style={[styles.modalOverlay, { backgroundColor: 'rgba(3, 12, 22, 0.85)' }]}>
+          <View style={[styles.modalContent, { backgroundColor: theme.colors.surface, borderColor: '#2F80ED40', width: '92%', maxHeight: '85%' }]}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: theme.colors.border + '30', paddingBottom: 12, marginBottom: 16 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Ionicons name={activeToolItem?.icon === 'chatbubbles-outline' ? 'chatbubble-ellipses' : 'calculator'} size={22} color="#2F80ED" />
+                <Text style={[styles.modalTitle, { color: theme.colors.textPrimary }]}>
+                  {activeToolItem?.title}
+                </Text>
+              </View>
+              <Pressable onPress={() => setIsToolModalVisible(false)}>
+                <Ionicons name="close-outline" size={24} color={theme.colors.textPrimary} />
+              </Pressable>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {activeToolItem?.title.includes('Mestahfed') ? (
+                // --- MESTAHFED AI TOOL VIEW ---
+                <View style={{ gap: 16 }}>
+                  {/* Voice assistant shortcut */}
+                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: theme.mode === 'dark' ? 'rgba(47, 128, 237, 0.08)' : 'rgba(47, 128, 237, 0.04)', borderColor: '#2F80ED33', borderWidth: 1, borderRadius: 14, padding: 12, marginBottom: 4 }}>
+                    <Text style={{ fontSize: 12, color: theme.colors.textSecondary, flex: 1, marginRight: 8, fontStyle: voiceTextResult ? 'italic' : 'normal' }}>
+                      {voiceTextResult || "Parlez en Derja pour remplir votre budget automatiquement !"}
+                    </Text>
+                    <Pressable
+                      onPress={startVoiceRecording}
+                      style={{
+                        backgroundColor: '#2F80ED',
+                        borderRadius: 10,
+                        paddingHorizontal: 12,
+                        paddingVertical: 8,
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        gap: 6
+                      }}
+                    >
+                      <Ionicons name="mic-outline" size={16} color="#F7FAFF" />
+                      <Text style={{ color: '#F7FAFF', fontSize: 12, fontWeight: '700' }}>Dicter</Text>
+                    </Pressable>
+                  </View>
+
+                  <Text style={{ color: theme.colors.textSecondary, fontSize: 13, lineHeight: 18 }}>
+                    Entrez votre budget mensuel et laissez Mestahfed AI analyser l'équilibre de votre trésorerie avec des recommandations locales.
+                  </Text>
+
+                  {/* Input Income */}
+                  <View style={{ gap: 6 }}>
+                    <Text style={{ fontSize: 12, fontWeight: '600', color: theme.colors.textSecondary }}>Mon Salaire / Revenu (TND)</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: theme.colors.surfaceSubtle, borderRadius: 12, borderWidth: 1, borderColor: theme.colors.border + '50', paddingHorizontal: 12, height: 44 }}>
+                      <Ionicons name="cash-outline" size={18} color="#7891B2" style={{ marginRight: 8 }} />
+                      <TextInput
+                        style={{ flex: 1, color: theme.colors.textPrimary, fontSize: 14 }}
+                        value={chrifaIncome}
+                        onChangeText={setChrifaIncome}
+                        keyboardType="numeric"
+                        placeholder="ex: 1500"
+                        placeholderTextColor="#7891B280"
+                      />
+                    </View>
+                  </View>
+
+                  {/* Input Expenses */}
+                  <View style={{ gap: 6 }}>
+                    <Text style={{ fontSize: 12, fontWeight: '600', color: theme.colors.textSecondary }}>Mes Dépenses estimées (TND)</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: theme.colors.surfaceSubtle, borderRadius: 12, borderWidth: 1, borderColor: theme.colors.border + '50', paddingHorizontal: 12, height: 44 }}>
+                      <Ionicons name="wallet-outline" size={18} color="#7891B2" style={{ marginRight: 8 }} />
+                      <TextInput
+                        style={{ flex: 1, color: theme.colors.textPrimary, fontSize: 14 }}
+                        value={chrifaExpense}
+                        onChangeText={setChrifaExpense}
+                        keyboardType="numeric"
+                        placeholder="ex: 1000"
+                        placeholderTextColor="#7891B280"
+                      />
+                    </View>
+                  </View>
+
+                  {/* Top Wasteful Habits Selectors */}
+                  <View style={{ gap: 6 }}>
+                    <Text style={{ fontSize: 12, fontWeight: '600', color: theme.colors.textSecondary }}>Mes "Fdhaya7" (Dépenses futiles) :</Text>
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                      {[
+                        { key: 'taxis', label: 'Taxis Bolt 🚗' },
+                        { key: 'kafteji', label: 'Kafteji/Mlaoui dehors 🌯' },
+                        { key: 'coffee', label: 'Café Direct ☕' },
+                        { key: 'fripe', label: 'Shopping Fripe 👕' }
+                      ].map((w) => {
+                        const isSelected = chrifaWastes.includes(w.key);
+                        return (
+                          <Pressable
+                            key={w.key}
+                            onPress={() => toggleWaste(w.key)}
+                            style={{
+                              paddingHorizontal: 10,
+                              paddingVertical: 6,
+                              borderRadius: 8,
+                              borderWidth: 1,
+                              backgroundColor: isSelected ? 'rgba(235, 87, 87, 0.15)' : theme.colors.surfaceSubtle,
+                              borderColor: isSelected ? '#EB5757' : theme.colors.border + '40'
+                            }}
+                          >
+                            <Text style={{ fontSize: 11, fontWeight: '600', color: isSelected ? '#EB5757' : theme.colors.textSecondary }}>
+                              {w.label}
+                            </Text>
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+                  </View>
+
+                  {/* MESTAHFED CHATBUBBLE ANALYSIS BOX */}
+                  <View style={{ backgroundColor: 'rgba(47, 128, 237, 0.08)', borderColor: '#2F80ED50', borderWidth: 1.2, borderRadius: 16, padding: 16, marginTop: 8 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                      <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: '#2F80ED', alignItems: 'center', justifyContent: 'center' }}>
+                        <Ionicons name="analytics-outline" size={16} color="#F7FAFF" />
+                      </View>
+                      <Text style={{ fontWeight: '700', fontSize: 13, color: '#2F80ED' }}>Mestahfed AI Budget Coach</Text>
+                    </View>
+                    
+                    <Text style={{ color: theme.colors.textPrimary, fontSize: 14, lineHeight: 20, marginBottom: 12 }}>
+                      {getChrifaRoast().roast}
+                    </Text>
+
+                    {getChrifaRoast().tips.length > 0 && (
+                      <View style={{ borderTopWidth: 1, borderTopColor: '#2F80ED20', paddingTop: 10 }}>
+                        <Text style={{ fontWeight: '600', fontSize: 11, color: '#2F80ED', marginBottom: 6 }}>Conseils d'optimisation Mestahfed :</Text>
+                        {getChrifaRoast().tips.map((tip, idx) => (
+                          <Text key={idx} style={{ color: theme.colors.textSecondary, fontSize: 12, marginBottom: 4 }}>
+                            • {tip}
+                          </Text>
+                        ))}
+                      </View>
+                    )}
+                  </View>
+                </View>
+              ) : (
+                // --- TUNISIAN TAX HELPER VIEW ---
+                <View style={{ gap: 16 }}>
+                  <Text style={{ color: theme.colors.textSecondary, fontSize: 13, lineHeight: 18 }}>
+                    Simulez votre impôt annuel selon les règles fiscales en vigueur en Tunisie.
+                  </Text>
+
+                  {/* Revenue Input */}
+                  <View style={{ gap: 6 }}>
+                    <Text style={{ fontSize: 12, fontWeight: '600', color: theme.colors.textSecondary }}>Chiffre d'Affaires / Revenu Annuel (TND)</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: theme.colors.surfaceSubtle, borderRadius: 12, borderWidth: 1, borderColor: theme.colors.border + '50', paddingHorizontal: 12, height: 44 }}>
+                      <Ionicons name="stats-chart-outline" size={18} color="#7891B2" style={{ marginRight: 8 }} />
+                      <TextInput
+                        style={{ flex: 1, color: theme.colors.textPrimary, fontSize: 14 }}
+                        value={taxRevenue}
+                        onChangeText={setTaxRevenue}
+                        keyboardType="numeric"
+                        placeholder="ex: 25000"
+                        placeholderTextColor="#7891B280"
+                      />
+                    </View>
+                  </View>
+
+                  {/* Regime Type Selection */}
+                  <View style={{ gap: 6 }}>
+                    <Text style={{ fontSize: 12, fontWeight: '600', color: theme.colors.textSecondary }}>Régime Fiscal</Text>
+                    <View style={{ flexDirection: 'row', gap: 10 }}>
+                      {[
+                        { value: 'Forfaitaire', label: 'Régime Forfaitaire' },
+                        { value: 'Reel', label: 'Régime Réel' }
+                      ].map((reg) => {
+                        const isActive = taxRegime === reg.value;
+                        return (
+                          <Pressable
+                            key={reg.value}
+                            onPress={() => setTaxRegime(reg.value as any)}
+                            style={{
+                              flex: 1,
+                              paddingVertical: 10,
+                              alignItems: 'center',
+                              borderRadius: 10,
+                              borderWidth: 1,
+                              backgroundColor: isActive ? 'rgba(47, 128, 237, 0.15)' : theme.colors.surfaceSubtle,
+                              borderColor: isActive ? '#2F80ED' : theme.colors.border + '40'
+                            }}
+                          >
+                            <Text style={{ fontSize: 12, fontWeight: '700', color: isActive ? '#2F80ED' : theme.colors.textSecondary }}>
+                              {reg.label}
+                            </Text>
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+                  </View>
+
+                  {/* Stepper Children */}
+                  {taxRegime === 'Reel' && (
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: theme.colors.surfaceSubtle, padding: 12, borderRadius: 12 }}>
+                      <View>
+                        <Text style={{ fontWeight: '600', fontSize: 12, color: theme.colors.textPrimary }}>Nombre d'enfants à charge</Text>
+                        <Text style={{ fontSize: 10, color: theme.colors.textSecondary }}>Défiscalisation de 500 TND par enfant</Text>
+                      </View>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                        <Pressable onPress={() => setTaxChildren(Math.max(0, taxChildren - 1))} style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: theme.colors.border + '40', alignItems: 'center', justifyContent: 'center' }}>
+                          <Text style={{ fontWeight: '700', color: theme.colors.textPrimary }}>-</Text>
+                        </Pressable>
+                        <Text style={{ fontWeight: '700', fontSize: 14, color: theme.colors.textPrimary }}>{taxChildren}</Text>
+                        <Pressable onPress={() => setTaxChildren(Math.min(4, taxChildren + 1))} style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: theme.colors.border + '40', alignItems: 'center', justifyContent: 'center' }}>
+                          <Text style={{ fontWeight: '700', color: theme.colors.textPrimary }}>+</Text>
+                        </Pressable>
+                      </View>
+                    </View>
+                  )}
+
+                  {/* CALCULATOR RESULTS CARD */}
+                  <View style={{ backgroundColor: 'rgba(39, 174, 96, 0.08)', borderColor: '#27AE6050', borderWidth: 1.2, borderRadius: 16, padding: 16, marginTop: 8, gap: 10 }}>
+                    <Text style={{ fontWeight: '700', fontSize: 13, color: '#27AE60' }}>Estimation des Impôts</Text>
+                    
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                      <Text style={{ color: theme.colors.textSecondary, fontSize: 12 }}>Impôt sur le Revenu :</Text>
+                      <Text style={{ fontWeight: '700', fontSize: 13, color: theme.colors.textPrimary }}>{calculateTunisianTax().tax.toFixed(3)} TND</Text>
+                    </View>
+
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                      <Text style={{ color: theme.colors.textSecondary, fontSize: 12 }}>Cotisation Sociale (CSS) :</Text>
+                      <Text style={{ fontWeight: '700', fontSize: 13, color: theme.colors.textPrimary }}>{calculateTunisianTax().css.toFixed(3)} TND</Text>
+                    </View>
+
+                    <View style={{ height: 1, backgroundColor: '#27AE6020' }} />
+
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                      <Text style={{ fontWeight: '700', color: theme.colors.textPrimary, fontSize: 13 }}>Total Dû à l'État :</Text>
+                      <Text style={{ fontWeight: '800', fontSize: 15, color: '#27AE60' }}>{calculateTunisianTax().total.toFixed(3)} TND</Text>
+                    </View>
+
+                    <Text style={{ color: theme.colors.textSecondary, fontSize: 11, lineHeight: 15, fontStyle: 'italic', marginTop: 4 }}>
+                      {calculateTunisianTax().details}
+                    </Text>
+                  </View>
+                </View>
+              )}
+            </ScrollView>
+
+            <Pressable
+              style={[styles.buttonSubmit, { backgroundColor: '#2F80ED', width: '100%', marginTop: 20 }]}
+              onPress={() => setIsToolModalVisible(false)}
+            >
+              <Text style={[styles.buttonSubmitText, { color: '#F7FAFF' }]}>
+                Fermer l'outil
+              </Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
     </>
   );
 

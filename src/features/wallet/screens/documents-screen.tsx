@@ -59,6 +59,7 @@ export function DocumentsScreen() {
     "Verified" | "Pending" | "Rejected"
   >("Pending");
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [focusedField, setFocusedField] = useState<string | null>(null);
 
   const fetchDocuments = async () => {
     if (!userId) return;
@@ -78,6 +79,43 @@ export function DocumentsScreen() {
       fetchDocuments();
     }
   }, [isReady, userId, isFocused]);
+
+  const [isScanning, setIsScanning] = useState(false);
+  const scanLineAnim = useRef(new Animated.Value(0)).current;
+
+  const startScanner = () => {
+    setIsScanning(true);
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(scanLineAnim, { toValue: 1, duration: 1100, useNativeDriver: true }),
+        Animated.timing(scanLineAnim, { toValue: 0, duration: 1100, useNativeDriver: true }),
+      ])
+    ).start();
+
+    setTimeout(async () => {
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      if (selectedType.label === 'ID Card') {
+        setDocTitle("Carte d'Identité Nationale");
+        setDocSubtitle("CIN: 09482154");
+        setSelectedImage("https://images.unsplash.com/photo-1554774853-719586f82d77?q=80&w=400");
+      } else if (selectedType.label === 'Passport') {
+        setDocTitle("Passeport Tunisien");
+        setDocSubtitle("Passport N° Z789324");
+        setSelectedImage("https://images.unsplash.com/photo-1544013587-566c441b83b1?q=80&w=400");
+      } else if (selectedType.label === 'Driver License') {
+        setDocTitle("Permis de Conduire");
+        setDocSubtitle("Permis N° 92/14835");
+        setSelectedImage("https://images.unsplash.com/photo-1580828343064-fde4fc206bc6?q=80&w=400");
+      } else {
+        setDocTitle("Justificatif STEG");
+        setDocSubtitle("Réf: 829471");
+        setSelectedImage("https://images.unsplash.com/photo-1580828343064-fde4fc206bc6?q=80&w=400");
+      }
+      setSelectedStatus("Verified");
+      setIsScanning(false);
+      Alert.alert("Scanner AI ⚡", "Document analysé et déchiffré avec succès ! Les données ont été extraites automatiquement.");
+    }, 2600);
+  };
 
   const handlePickImage = async (useCamera: boolean) => {
     try {
@@ -200,6 +238,14 @@ export function DocumentsScreen() {
                 subtitle={doc.subtitle || ""}
                 title={doc.title}
                 imageUrl={doc.image_url || undefined}
+                onDelete={async () => {
+                  try {
+                    await dbService.deleteDocument(doc.id!);
+                    await fetchDocuments();
+                  } catch (e) {
+                    console.error("Delete doc failed:", e);
+                  }
+                }}
               />
             ))}
           </View>
@@ -215,6 +261,32 @@ export function DocumentsScreen() {
         </View>
       </ScrollView>
 
+      {/* SCANNING MOCK VIEW OVERLAY */}
+      <Modal visible={isScanning} transparent animationType="fade">
+        <View style={styles.scanOverlay}>
+          <View style={styles.scanViewfinder}>
+            <View style={styles.viewfinderCornerTL} />
+            <View style={styles.viewfinderCornerTR} />
+            <View style={styles.viewfinderCornerBL} />
+            <View style={styles.viewfinderCornerBR} />
+            
+            <Animated.View style={[
+              styles.scanLaser,
+              {
+                transform: [{
+                  translateY: scanLineAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [10, 190]
+                  })
+                }]
+              }
+            ]} />
+            <Text style={styles.scanLaserText}>Scanner AI en cours...</Text>
+          </View>
+          <Text style={styles.scanInstruction}>Veuillez cadrer le document</Text>
+        </View>
+      </Modal>
+
       {/* Add Document Modal */}
       <Modal
         visible={isAddModalVisible}
@@ -225,7 +297,7 @@ export function DocumentsScreen() {
         <View style={styles.slideModalOverlay}>
           <View style={styles.slideModalContent}>
             <View style={styles.modalHeaderRow}>
-              <Text style={styles.modalTitle}>Add New Document</Text>
+              <Text style={styles.modalTitle}>Nouveau Document</Text>
               <Pressable onPress={() => setIsAddModalVisible(false)}>
                 <Ionicons name="close-outline" size={24} color="#F7FAFF" />
               </Pressable>
@@ -235,23 +307,32 @@ export function DocumentsScreen() {
               showsVerticalScrollIndicator={false}
             >
               <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Document Title</Text>
-                <TextInput
-                  style={[styles.textInput, errors.docTitle && styles.textInputError]}
-                  placeholder="e.g., National ID"
-                  placeholderTextColor="#7891B280"
-                  value={docTitle}
-                  onChangeText={(text) => {
-                    setDocTitle(text);
-                    clearError('docTitle');
-                  }}
-                  maxLength={80}
-                />
+                <Text style={styles.inputLabel}>Titre du Document</Text>
+                <View style={[
+                  styles.inputContainer,
+                  focusedField === 'docTitle' && styles.inputContainerFocused,
+                  errors.docTitle && styles.inputContainerError
+                ]}>
+                  <Ionicons name="document-text-outline" size={20} color={focusedField === 'docTitle' ? '#2F80ED' : '#7891B280'} style={styles.inputIcon} />
+                  <TextInput
+                    style={styles.textInputWithIcon}
+                    placeholder="ex: Carte d'Identité Tunisienne"
+                    placeholderTextColor="#7891B280"
+                    value={docTitle}
+                    onChangeText={(text) => {
+                      setDocTitle(text);
+                      clearError('docTitle');
+                    }}
+                    onFocus={() => setFocusedField('docTitle')}
+                    onBlur={() => setFocusedField(null)}
+                    maxLength={80}
+                  />
+                </View>
                 {errors.docTitle ? <Text style={styles.fieldError}>{errors.docTitle}</Text> : null}
               </View>
 
               <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Document Type</Text>
+                <Text style={styles.inputLabel}>Type de Document</Text>
                 <View style={styles.badgeSelectorRow}>
                   {DOC_TYPES.map((type) => {
                     const isActive = selectedType.label === type.label;
@@ -282,7 +363,7 @@ export function DocumentsScreen() {
               </View>
 
               <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Status</Text>
+                <Text style={styles.inputLabel}>Statut de Vérification</Text>
                 <View style={styles.badgeSelectorRow}>
                   {STATUS_OPTIONS.map((status) => {
                     const isActive = selectedStatus === status.value;
@@ -312,40 +393,56 @@ export function DocumentsScreen() {
               <View style={styles.inputGroup}>
                 <Text style={styles.inputLabel}>
                   {['ID Card', 'Passport', 'Driver License'].includes(selectedType.label)
-                    ? 'Reference / Number'
-                    : 'Description (Optional)'}
+                    ? 'Numéro / Référence'
+                    : 'Description (Optionnelle)'}
                 </Text>
-                <TextInput
-                  style={[styles.textInput, { minHeight: 60 }, errors.docSubtitle && styles.textInputError]}
-                  placeholder="Add a description..."
-                  placeholderTextColor="#7891B280"
-                  value={docSubtitle}
-                  onChangeText={(text) => {
-                    setDocSubtitle(text);
-                    clearError('docSubtitle');
-                  }}
-                  multiline
-                  maxLength={120}
-                />
+                <View style={[
+                  styles.inputContainer,
+                  { minHeight: 48 },
+                  focusedField === 'docSubtitle' && styles.inputContainerFocused,
+                  errors.docSubtitle && styles.inputContainerError
+                ]}>
+                  <Ionicons name="create-outline" size={20} color={focusedField === 'docSubtitle' ? '#2F80ED' : '#7891B280'} style={styles.inputIcon} />
+                  <TextInput
+                    style={styles.textInputWithIcon}
+                    placeholder="Saisissez la référence..."
+                    placeholderTextColor="#7891B280"
+                    value={docSubtitle}
+                    onChangeText={(text) => {
+                      setDocSubtitle(text);
+                      clearError('docSubtitle');
+                    }}
+                    onFocus={() => setFocusedField('docSubtitle')}
+                    onBlur={() => setFocusedField(null)}
+                    maxLength={120}
+                  />
+                </View>
                 {errors.docSubtitle ? <Text style={styles.fieldError}>{errors.docSubtitle}</Text> : null}
               </View>
 
               <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Document Image (Optional)</Text>
+                <Text style={styles.inputLabel}>Ajouter une Image</Text>
                 <View style={styles.imagesPickerRow}>
+                  <Pressable
+                    style={[styles.imagePickOption, { backgroundColor: '#2F80ED20', borderColor: '#2F80ED' }]}
+                    onPress={startScanner}
+                  >
+                    <Ionicons name="scan-outline" size={18} color="#2F80ED" />
+                    <Text style={[styles.imagePickOptionText, { color: '#2F80ED', fontWeight: '800' }]}>Scanner AI ⚡</Text>
+                  </Pressable>
                   <Pressable
                     style={styles.imagePickOption}
                     onPress={() => handlePickImage(true)}
                   >
-                    <Ionicons name="camera-outline" size={20} color="#2F80ED" />
+                    <Ionicons name="camera-outline" size={18} color="#7891B2" />
                     <Text style={styles.imagePickOptionText}>Camera</Text>
                   </Pressable>
                   <Pressable
                     style={styles.imagePickOption}
                     onPress={() => handlePickImage(false)}
                   >
-                    <Ionicons name="images-outline" size={20} color="#2F80ED" />
-                    <Text style={styles.imagePickOptionText}>Gallery</Text>
+                    <Ionicons name="images-outline" size={18} color="#7891B2" />
+                    <Text style={styles.imagePickOptionText}>Galerie</Text>
                   </Pressable>
                 </View>
                 {selectedImage && (
@@ -369,13 +466,13 @@ export function DocumentsScreen() {
                   style={styles.buttonCancel}
                   onPress={() => setIsAddModalVisible(false)}
                 >
-                  <Text style={styles.buttonCancelText}>Cancel</Text>
+                  <Text style={styles.buttonCancelText}>Annuler</Text>
                 </Pressable>
                 <Pressable
                   style={styles.buttonSubmit}
                   onPress={handleAddDocument}
                 >
-                  <Text style={styles.buttonSubmitText}>Add Document</Text>
+                  <Text style={styles.buttonSubmitText}>Ajouter Document</Text>
                 </Pressable>
               </View>
             </ScrollView>
@@ -494,8 +591,36 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     fontSize: 14,
   },
+  textInputFocused: {
+    borderColor: "#2F80ED",
+  },
   textInputError: {
     borderColor: "#FF5353",
+  },
+  inputContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#091E36",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#1B5B9F50",
+    paddingHorizontal: 14,
+    height: 48,
+  },
+  inputContainerFocused: {
+    borderColor: "#2F80ED",
+  },
+  inputContainerError: {
+    borderColor: "#FF5353",
+  },
+  inputIcon: {
+    marginRight: 10,
+  },
+  textInputWithIcon: {
+    flex: 1,
+    color: "#F7FAFF",
+    fontSize: 14,
+    height: "100%",
   },
   fieldError: {
     color: "#FF5353",
@@ -600,5 +725,91 @@ const styles = StyleSheet.create({
   buttonSubmitText: {
     color: "#F7FAFF",
     fontWeight: "700",
+  },
+  // Scanner Styles
+  scanOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(3, 12, 22, 0.95)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  scanViewfinder: {
+    width: 280,
+    height: 200,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.2)",
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    position: "relative",
+    justifyContent: "center",
+    alignItems: "center",
+    borderRadius: 16,
+  },
+  viewfinderCornerTL: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    width: 20,
+    height: 20,
+    borderTopWidth: 4,
+    borderLeftWidth: 4,
+    borderColor: "#2F80ED",
+    borderTopLeftRadius: 12,
+  },
+  viewfinderCornerTR: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    width: 20,
+    height: 20,
+    borderTopWidth: 4,
+    borderRightWidth: 4,
+    borderColor: "#2F80ED",
+    borderTopRightRadius: 12,
+  },
+  viewfinderCornerBL: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    width: 20,
+    height: 20,
+    borderBottomWidth: 4,
+    borderLeftWidth: 4,
+    borderColor: "#2F80ED",
+    borderBottomLeftRadius: 12,
+  },
+  viewfinderCornerBR: {
+    position: "absolute",
+    bottom: 0,
+    right: 0,
+    width: 20,
+    height: 20,
+    borderBottomWidth: 4,
+    borderRightWidth: 4,
+    borderColor: "#2F80ED",
+    borderBottomRightRadius: 12,
+  },
+  scanLaser: {
+    position: "absolute",
+    top: 0,
+    left: "5%",
+    width: "90%",
+    height: 3,
+    backgroundColor: "#2F80ED",
+    shadowColor: "#2F80ED",
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 8,
+  },
+  scanLaserText: {
+    color: "#2F80ED",
+    fontSize: 12,
+    fontWeight: "700",
+    marginTop: 10,
+  },
+  scanInstruction: {
+    color: "#7891B2",
+    fontSize: 14,
+    marginTop: 20,
+    fontWeight: "600",
   },
 });

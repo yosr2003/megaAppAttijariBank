@@ -7,6 +7,7 @@ import {
     Alert,
     Animated,
     Modal,
+    PanResponder,
     Pressable,
     ScrollView,
     StyleSheet,
@@ -31,6 +32,10 @@ const FlipCard = ({ card, onDelete }: FlipCardProps) => {
   const [isFlipped, setIsFlipped] = useState(false);
   const animatedValue = useRef(new Animated.Value(0)).current;
 
+  // 3D Parallax Tilt Animated Values
+  const rotateX = useRef(new Animated.Value(0)).current;
+  const rotateY = useRef(new Animated.Value(0)).current;
+
   const flipToBack = () => {
     Animated.timing(animatedValue, {
       toValue: 180,
@@ -47,6 +52,56 @@ const FlipCard = ({ card, onDelete }: FlipCardProps) => {
     }).start(() => setIsFlipped(false));
   };
 
+  // Setup PanResponder for 3D Parallax Tilt
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: () => true,
+      onPanResponderMove: (evt, gestureState) => {
+        const maxRotation = 14; // Max rotation angle in degrees
+        const tiltX = (gestureState.dy / 100) * maxRotation;
+        const tiltY = -(gestureState.dx / 160) * maxRotation;
+
+        Animated.spring(rotateX, {
+          toValue: Math.min(Math.max(tiltX, -maxRotation), maxRotation),
+          useNativeDriver: true,
+          bounciness: 0,
+        }).start();
+
+        Animated.spring(rotateY, {
+          toValue: Math.min(Math.max(tiltY, -maxRotation), maxRotation),
+          useNativeDriver: true,
+          bounciness: 0,
+        }).start();
+      },
+      onPanResponderRelease: (evt, gestureState) => {
+        // Smoothly return card to flat state
+        Animated.spring(rotateX, {
+          toValue: 0,
+          useNativeDriver: true,
+          tension: 40,
+          friction: 7,
+        }).start();
+
+        Animated.spring(rotateY, {
+          toValue: 0,
+          useNativeDriver: true,
+          tension: 40,
+          friction: 7,
+        }).start();
+
+        // Tap Detection: If distance moved is very small, treat as a click to flip
+        if (Math.abs(gestureState.dx) < 6 && Math.abs(gestureState.dy) < 6) {
+          if (isFlipped) {
+            flipToFront();
+          } else {
+            flipToBack();
+          }
+        }
+      },
+    })
+  ).current;
+
   const frontInterpolate = animatedValue.interpolate({
     inputRange: [0, 180],
     outputRange: ["0deg", "180deg"],
@@ -57,17 +112,31 @@ const FlipCard = ({ card, onDelete }: FlipCardProps) => {
     outputRange: ["180deg", "360deg"],
   });
 
+  // Combine Flip and Tilt Animations
   const frontAnimatedStyle = {
-    transform: [{ rotateY: frontInterpolate }],
+    transform: [
+      { perspective: 1000 },
+      { rotateY: frontInterpolate },
+      { rotateX: rotateX.interpolate({ inputRange: [-30, 30], outputRange: ["-30deg", "30deg"] }) },
+      { rotateY: rotateY.interpolate({ inputRange: [-30, 30], outputRange: ["-30deg", "30deg"] }) },
+    ],
   };
 
   const backAnimatedStyle = {
-    transform: [{ rotateY: backInterpolate }],
+    transform: [
+      { perspective: 1000 },
+      { rotateY: backInterpolate },
+      { rotateX: rotateX.interpolate({ inputRange: [-30, 30], outputRange: ["-30deg", "30deg"] }) },
+      { rotateY: rotateY.interpolate({ inputRange: [-30, 30], outputRange: ["-30deg", "30deg"] }) },
+    ],
   };
 
   return (
     <View style={styles.flipCardContainer}>
-      <Pressable onPress={isFlipped ? flipToFront : flipToBack}>
+      <Animated.View 
+        {...panResponder.panHandlers}
+        style={{ width: "100%", height: "100%" }}
+      >
         <Animated.View
           style={[styles.cardContainer, styles.cardFront, frontAnimatedStyle]}
         >
@@ -144,9 +213,9 @@ const FlipCard = ({ card, onDelete }: FlipCardProps) => {
               </Text>
             </View>
           </View>
-          <Text style={styles.backNote}>Tap to flip back</Text>
+          <Text style={styles.backNote}>Glissez pour incliner, tapez pour retourner</Text>
         </Animated.View>
-      </Pressable>
+      </Animated.View>
       <Pressable
         style={styles.deleteButton}
         onPress={() => {
@@ -182,6 +251,7 @@ export function CardsScreen() {
   const [cardholderName, setCardholderName] = useState("");
   const [expiryDate, setExpiryDate] = useState("");
   const [cardType, setCardType] = useState<"Platinum" | "Gold">("Platinum");
+  const [focusedField, setFocusedField] = useState<string | null>(null);
   const [balance, setBalance] = useState("");
 
   const fetchCards = async () => {
@@ -319,7 +389,10 @@ export function CardsScreen() {
         <View style={styles.slideModalOverlay}>
           <View style={styles.slideModalContent}>
             <View style={styles.modalHeaderRow}>
-              <Text style={styles.modalTitle}>Add New Card</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Ionicons name="shield-checkmark-outline" size={20} color="#2F80ED" />
+                <Text style={styles.modalTitle}>Add New Card</Text>
+              </View>
               <Pressable onPress={() => setIsAddModalVisible(false)}>
                 <Ionicons name="close-outline" size={24} color="#F7FAFF" />
               </Pressable>
@@ -330,52 +403,79 @@ export function CardsScreen() {
             >
               <View style={styles.inputGroup}>
                 <Text style={styles.inputLabel}>Card Number</Text>
-                <TextInput
-                  style={[styles.textInput, errors.cardNumber && styles.textInputError]}
-                  placeholder="1234 5678 9012 3456"
-                  placeholderTextColor="#7891B280"
-                  value={cardNumber}
-                  onChangeText={(text) => {
-                    setCardNumber(format.cardNumber(text));
-                    clearError('cardNumber');
-                  }}
-                  keyboardType="numeric"
-                  maxLength={22}
-                />
+                <View style={[
+                  styles.inputContainer,
+                  focusedField === 'cardNumber' && styles.inputContainerFocused,
+                  errors.cardNumber && styles.inputContainerError
+                ]}>
+                  <Ionicons name="card-outline" size={20} color={focusedField === 'cardNumber' ? '#2F80ED' : '#7891B280'} style={styles.inputIcon} />
+                  <TextInput
+                    style={styles.textInputWithIcon}
+                    placeholder="1234 5678 9012 3456"
+                    placeholderTextColor="#7891B280"
+                    value={cardNumber}
+                    onChangeText={(text) => {
+                      setCardNumber(format.cardNumber(text));
+                      clearError('cardNumber');
+                    }}
+                    onFocus={() => setFocusedField('cardNumber')}
+                    onBlur={() => setFocusedField(null)}
+                    keyboardType="numeric"
+                    maxLength={22}
+                  />
+                </View>
                 {errors.cardNumber ? <Text style={styles.fieldError}>{errors.cardNumber}</Text> : null}
               </View>
 
               <View style={styles.inputGroup}>
                 <Text style={styles.inputLabel}>Cardholder Name</Text>
-                <TextInput
-                  style={[styles.textInput, errors.cardholderName && styles.textInputError]}
-                  placeholder="John Doe"
-                  placeholderTextColor="#7891B280"
-                  value={cardholderName}
-                  onChangeText={(text) => {
-                    setCardholderName(text);
-                    clearError('cardholderName');
-                  }}
-                  autoCapitalize="words"
-                />
+                <View style={[
+                  styles.inputContainer,
+                  focusedField === 'cardholderName' && styles.inputContainerFocused,
+                  errors.cardholderName && styles.inputContainerError
+                ]}>
+                  <Ionicons name="person-outline" size={20} color={focusedField === 'cardholderName' ? '#2F80ED' : '#7891B280'} style={styles.inputIcon} />
+                  <TextInput
+                    style={styles.textInputWithIcon}
+                    placeholder="John Doe"
+                    placeholderTextColor="#7891B280"
+                    value={cardholderName}
+                    onChangeText={(text) => {
+                      setCardholderName(text);
+                      clearError('cardholderName');
+                    }}
+                    onFocus={() => setFocusedField('cardholderName')}
+                    onBlur={() => setFocusedField(null)}
+                    autoCapitalize="words"
+                  />
+                </View>
                 {errors.cardholderName ? <Text style={styles.fieldError}>{errors.cardholderName}</Text> : null}
               </View>
 
               <View style={styles.formRow}>
                 <View style={[styles.inputGroup, { flex: 1 }]}>
                   <Text style={styles.inputLabel}>Expiry Date</Text>
-                  <TextInput
-                    style={[styles.textInput, errors.expiryDate && styles.textInputError]}
-                    placeholder="MM/YY"
-                    placeholderTextColor="#7891B280"
-                    value={expiryDate}
-                    onChangeText={(text) => {
-                      setExpiryDate(format.cardExpiry(text));
-                      clearError('expiryDate');
-                    }}
-                    keyboardType="numeric"
-                    maxLength={5}
-                  />
+                  <View style={[
+                    styles.inputContainer,
+                    focusedField === 'expiryDate' && styles.inputContainerFocused,
+                    errors.expiryDate && styles.inputContainerError
+                  ]}>
+                    <Ionicons name="calendar-outline" size={20} color={focusedField === 'expiryDate' ? '#2F80ED' : '#7891B280'} style={styles.inputIcon} />
+                    <TextInput
+                      style={styles.textInputWithIcon}
+                      placeholder="MM/YY"
+                      placeholderTextColor="#7891B280"
+                      value={expiryDate}
+                      onChangeText={(text) => {
+                        setExpiryDate(format.cardExpiry(text));
+                        clearError('expiryDate');
+                      }}
+                      onFocus={() => setFocusedField('expiryDate')}
+                      onBlur={() => setFocusedField(null)}
+                      keyboardType="numeric"
+                      maxLength={5}
+                    />
+                  </View>
                   {errors.expiryDate ? <Text style={styles.fieldError}>{errors.expiryDate}</Text> : null}
                 </View>
 
@@ -390,6 +490,7 @@ export function CardsScreen() {
                           style={[
                             styles.badgeSelectorItem,
                             isActive && styles.badgeSelectorItemActive,
+                            isActive && type === 'Gold' && styles.badgeSelectorItemActiveGold,
                             { flex: 1 },
                           ]}
                           onPress={() => setCardType(type)}
@@ -398,6 +499,7 @@ export function CardsScreen() {
                             style={[
                               styles.badgeSelectorText,
                               isActive && styles.badgeSelectorTextActive,
+                              isActive && type === 'Gold' && styles.badgeSelectorTextActiveGold,
                             ]}
                           >
                             {type}
@@ -411,17 +513,26 @@ export function CardsScreen() {
 
               <View style={styles.inputGroup}>
                 <Text style={styles.inputLabel}>Initial Balance (TND)</Text>
-                <TextInput
-                  style={[styles.textInput, errors.balance && styles.textInputError]}
-                  placeholder="0.000"
-                  placeholderTextColor="#7891B280"
-                  value={balance}
-                  onChangeText={(text) => {
-                    setBalance(format.tndAmount(text));
-                    clearError('balance');
-                  }}
-                  keyboardType="decimal-pad"
-                />
+                <View style={[
+                  styles.inputContainer,
+                  focusedField === 'balance' && styles.inputContainerFocused,
+                  errors.balance && styles.inputContainerError
+                ]}>
+                  <Ionicons name="cash-outline" size={20} color={focusedField === 'balance' ? '#2F80ED' : '#7891B280'} style={styles.inputIcon} />
+                  <TextInput
+                    style={styles.textInputWithIcon}
+                    placeholder="0.000"
+                    placeholderTextColor="#7891B280"
+                    value={balance}
+                    onChangeText={(text) => {
+                      setBalance(format.tndAmount(text));
+                      clearError('balance');
+                    }}
+                    onFocus={() => setFocusedField('balance')}
+                    onBlur={() => setFocusedField(null)}
+                    keyboardType="decimal-pad"
+                  />
+                </View>
                 {errors.balance ? <Text style={styles.fieldError}>{errors.balance}</Text> : null}
               </View>
 
@@ -735,8 +846,36 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     fontSize: 14,
   },
+  textInputFocused: {
+    borderColor: "#2F80ED",
+  },
   textInputError: {
     borderColor: "#FF5353",
+  },
+  inputContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#091E36",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#1B5B9F50",
+    paddingHorizontal: 14,
+    height: 48,
+  },
+  inputContainerFocused: {
+    borderColor: "#2F80ED",
+  },
+  inputContainerError: {
+    borderColor: "#FF5353",
+  },
+  inputIcon: {
+    marginRight: 10,
+  },
+  textInputWithIcon: {
+    flex: 1,
+    color: "#F7FAFF",
+    fontSize: 14,
+    height: "100%",
   },
   fieldError: {
     color: "#FF5353",
@@ -764,6 +903,10 @@ const styles = StyleSheet.create({
     backgroundColor: "#2F80ED22",
     borderColor: "#2F80ED",
   },
+  badgeSelectorItemActiveGold: {
+    backgroundColor: "#F2C94C22",
+    borderColor: "#F2C94C",
+  },
   badgeSelectorText: {
     fontSize: 12,
     color: "#7891B2",
@@ -772,6 +915,10 @@ const styles = StyleSheet.create({
   },
   badgeSelectorTextActive: {
     color: "#2F80ED",
+    fontWeight: "700",
+  },
+  badgeSelectorTextActiveGold: {
+    color: "#F2C94C",
     fontWeight: "700",
   },
   rowButtons: {

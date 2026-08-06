@@ -37,22 +37,22 @@ export type AppColors = {
 };
 
 export const darkColors: AppColors = {
-  background: colors.midnight,
-  surface: colors.navy,
-  surfaceElevated: colors.navyElevated,
-  surfaceSubtle: "#0D294B",
-  glass: "#102F56D9",
-  glassStrong: "#0B2342F2",
-  textPrimary: colors.white,
-  textSecondary: colors.muted,
-  border: colors.borderBlue,
-  primary: colors.electricBlue,
-  primaryOn: colors.white,
-  action: colors.electricBlue,
-  actionOn: colors.white,
-  accent: colors.iceBlue,
-  success: colors.green,
-  danger: colors.red,
+  background: "#121826",
+  surface: "#1B2433",
+  surfaceElevated: "#222C3D",
+  surfaceSubtle: "#2D394C",
+  glass: "rgba(34, 44, 61, 0.85)",
+  glassStrong: "rgba(27, 36, 51, 0.95)",
+  textPrimary: "#F8FAFC",
+  textSecondary: "#B7C3D0",
+  border: "#334155",
+  primary: "#3B82F6",
+  primaryOn: "#F8FAFC",
+  action: "#3B82F6",
+  actionOn: "#F8FAFC",
+  accent: "#60A5FA",
+  success: "#22C55E",
+  danger: "#EF4444",
 };
 
 export const lightColors: AppColors = {

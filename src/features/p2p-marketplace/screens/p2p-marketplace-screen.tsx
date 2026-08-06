@@ -50,7 +50,16 @@ export function P2PMarketplaceScreen() {
 
   // Mock Chat State
   const [chatMessage, setChatMessage] = useState('');
-  const [chatHistory, setChatHistory] = useState<{ sender: 'user' | 'seller'; text: string; time: string }[]>([]);
+  const [chatProduct, setChatProduct] = useState<P2PProduct | null>(null);
+  const [negotiatedPrice, setNegotiatedPrice] = useState<number | null>(null);
+  const [chatHistory, setChatHistory] = useState<{ 
+    sender: 'user' | 'seller'; 
+    text: string; 
+    time: string;
+    type?: 'text' | 'offer';
+    offerPrice?: number;
+    offerStatus?: 'pending' | 'accepted' | 'declined';
+  }[]>([]);
 
   // Sell Form State
   const [sellTitle, setSellTitle] = useState('');
@@ -62,6 +71,7 @@ export function P2PMarketplaceScreen() {
   const [sellContact, setSellContact] = useState('+216 ');
   const [sellImages, setSellImages] = useState<string[]>([]);
   const [userCards, setUserCards] = useState<WalletCard[]>([]);
+  const [focusedField, setFocusedField] = useState<string | null>(null);
 
   // Load Marketplace Products & Favorites
   const loadProducts = async () => {
@@ -216,10 +226,11 @@ export function P2PMarketplaceScreen() {
   // P2P purchase workflow
   const handleInitiateP2PBuy = (product: P2PProduct) => {
     const walletBalance = userCards.reduce((acc, c) => acc + (c.balance || 0), 0);
-    if (walletBalance < product.price) {
+    const finalPrice = negotiatedPrice !== null ? negotiatedPrice : product.price;
+    if (walletBalance < finalPrice) {
       Alert.alert(
         "Solde insuffisant",
-        `Le solde de votre portefeuille (${walletBalance.toFixed(3)} TND) est insuffisant pour acheter cet article à ${Number(product.price).toFixed(3)} TND.`
+        `Le solde de votre portefeuille (${walletBalance.toFixed(3)} TND) est insuffisant pour acheter cet article à ${finalPrice.toFixed(3)} TND.`
       );
       return;
     }
@@ -230,11 +241,12 @@ export function P2PMarketplaceScreen() {
   const handleP2PBuySuccess = async () => {
     if (!productToBuy || !userId) return;
     setIsFaceIdVisible(false);
+    const finalPrice = negotiatedPrice !== null ? negotiatedPrice : productToBuy.price;
     try {
       setLoading(true);
       const activeCard = userCards[0];
       if (activeCard && activeCard.id) {
-        const newBal = Math.max(0, activeCard.balance - productToBuy.price);
+        const newBal = Math.max(0, activeCard.balance - finalPrice);
         await dbService.updateCardBalance(activeCard.id, newBal);
       }
       
@@ -244,7 +256,7 @@ export function P2PMarketplaceScreen() {
         card_id: activeCard?.id || null,
         title: `Escrow: ${productToBuy.title}`,
         category: "Marketplace",
-        amount: -productToBuy.price,
+        amount: -finalPrice,
         currency: "TND",
         icon: "lock-closed-outline"
       });
@@ -252,11 +264,12 @@ export function P2PMarketplaceScreen() {
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       Alert.alert(
         "Achat Séquestre Actif 🔒",
-        `Félicitations! Le paiement de ${Number(productToBuy.price).toFixed(3)} TND a été sécurisé en escrow. Veuillez scanner le code QR du vendeur lors de la remise physique pour débloquer les fonds.`
+        `Félicitations! Le paiement de ${finalPrice.toFixed(3)} TND a été sécurisé en escrow. Veuillez scanner le code QR du vendeur lors de la remise physique pour débloquer les fonds.`
       );
       
       setIsDetailModalVisible(false);
       setProductToBuy(null);
+      setNegotiatedPrice(null);
       loadProducts();
     } catch (e) {
       console.error("Escrow purchase failed:", e);
@@ -268,9 +281,11 @@ export function P2PMarketplaceScreen() {
 
   // Open Chat with Seller
   const openChatWithSeller = (product: P2PProduct) => {
+    setChatProduct(product);
+    setNegotiatedPrice(null);
     setIsDetailModalVisible(false);
     setChatHistory([
-      { sender: 'seller', text: `Bonjour ! Oui, le produit "${product.title}" est toujours disponible. Vous souhaitez le voir ?`, time: '11:00' }
+      { sender: 'seller', text: `Bonjour ! Oui, le produit "${product.title}" est toujours disponible. Vous souhaitez le voir ?`, time: '11:00', type: 'text' }
     ]);
     setIsChatModalVisible(true);
   };
@@ -278,7 +293,7 @@ export function P2PMarketplaceScreen() {
   const handleSendChatMessage = () => {
     if (!chatMessage.trim()) return;
     
-    const newMsg = { sender: 'user' as const, text: chatMessage, time: '11:15' };
+    const newMsg = { sender: 'user' as const, text: chatMessage, time: '11:15', type: 'text' as const };
     setChatHistory(prev => [...prev, newMsg]);
     setChatMessage('');
 
@@ -287,9 +302,66 @@ export function P2PMarketplaceScreen() {
       setChatHistory(prev => [...prev, {
         sender: 'seller',
         text: "D'accord, je suis libre cet après-midi à la Marsa si vous êtes disponible pour faire l'échange.",
-        time: '11:16'
+        time: '11:16',
+        type: 'text' as const
       }]);
     }, 1500);
+  };
+
+  const handleMakeOffer = (priceStr: string) => {
+    const price = parseFloat(priceStr);
+    if (isNaN(price) || price <= 0 || !chatProduct) {
+      Alert.alert("Erreur", "Veuillez entrer une offre valide.");
+      return;
+    }
+
+    const offerMsg = {
+      sender: 'user' as const,
+      text: `Offre de prix envoyée : ${price.toFixed(3)} TND`,
+      time: '11:15',
+      type: 'offer' as const,
+      offerPrice: price,
+      offerStatus: 'pending' as const,
+    };
+    setChatHistory((prev) => [...prev, offerMsg]);
+
+    setTimeout(() => {
+      const minPrice = chatProduct.price * 0.80; // Accepts down to 80%
+      const accepted = price >= minPrice;
+
+      if (accepted) {
+        setNegotiatedPrice(price);
+        setChatHistory((prev) =>
+          prev.map((msg) =>
+            msg.type === 'offer' && msg.offerPrice === price ? { ...msg, offerStatus: 'accepted' } : msg
+          )
+        );
+        setChatHistory((prev) => [
+          ...prev,
+          {
+            sender: 'seller' as const,
+            text: `D'accord, j'accepte votre offre pour ${price.toFixed(3)} TND. Vous pouvez procéder à l'achat sécurisé !`,
+            time: '11:16',
+            type: 'text' as const,
+          },
+        ]);
+      } else {
+        setChatHistory((prev) =>
+          prev.map((msg) =>
+            msg.type === 'offer' && msg.offerPrice === price ? { ...msg, offerStatus: 'declined' } : msg
+          )
+        );
+        setChatHistory((prev) => [
+          ...prev,
+          {
+            sender: 'seller' as const,
+            text: `Désolé, c'est trop bas pour cet article. Mon prix final est de ${(chatProduct.price * 0.9).toFixed(3)} TND.`,
+            time: '11:16',
+            type: 'text' as const,
+          },
+        ]);
+      }
+    }, 1800);
   };
 
   // Apply search query, category, location, and sorting filters
@@ -385,7 +457,18 @@ export function P2PMarketplaceScreen() {
           showsVerticalScrollIndicator={false}
           renderItem={({ item }) => (
             <Pressable 
-              style={styles.productCard}
+              style={({ pressed }) => [
+                styles.productCard,
+                {
+                  backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                  borderColor: 'rgba(255, 255, 255, 0.1)',
+                  shadowColor: '#2F80ED',
+                  shadowOffset: { width: 0, height: 6 },
+                  shadowOpacity: 0.15,
+                  shadowRadius: 12,
+                },
+                pressed && { transform: [{ scale: 0.96 }], opacity: 0.85 }
+              ]}
               onPress={() => {
                 setSelectedProduct(item);
                 setIsDetailModalVisible(true);
@@ -451,38 +534,55 @@ export function P2PMarketplaceScreen() {
             </View>
 
             <ScrollView contentContainerStyle={styles.formContainer} showsVerticalScrollIndicator={false}>
-              {/* Product Title */}
               <View style={styles.inputGroup}>
                 <Text style={styles.inputLabel}>Titre de l'article</Text>
-                <TextInput
-                  style={[styles.textInput, errors.sellTitle && styles.textInputError]}
-                  placeholder="ex: Table en bois massif, Samsung S23..."
-                  placeholderTextColor="#7891B280"
-                  value={sellTitle}
-                  onChangeText={(text) => {
-                    setSellTitle(text);
-                    clearError('sellTitle');
-                  }}
-                  maxLength={100}
-                />
+                <View style={[
+                  styles.inputContainer,
+                  focusedField === 'sellTitle' && styles.inputContainerFocused,
+                  errors.sellTitle && styles.inputContainerError
+                ]}>
+                  <Ionicons name="pricetag-outline" size={20} color={focusedField === 'sellTitle' ? '#2F80ED' : '#7891B280'} style={styles.inputIcon} />
+                  <TextInput
+                    style={styles.textInputWithIcon}
+                    placeholder="ex: Table en bois massif, Samsung S23..."
+                    placeholderTextColor="#7891B280"
+                    value={sellTitle}
+                    onChangeText={(text) => {
+                      setSellTitle(text);
+                      clearError('sellTitle');
+                    }}
+                    onFocus={() => setFocusedField('sellTitle')}
+                    onBlur={() => setFocusedField(null)}
+                    maxLength={100}
+                  />
+                </View>
                 {errors.sellTitle ? <Text style={styles.fieldError}>{errors.sellTitle}</Text> : null}
               </View>
 
               {/* Price & Condition */}
-              <View style={styles.formRow}>
+              <View style={{ flexDirection: 'row', gap: 12 }}>
                 <View style={[styles.inputGroup, { flex: 1 }]}>
                   <Text style={styles.inputLabel}>Prix (TND)</Text>
-                  <TextInput
-                    style={[styles.textInput, errors.sellPrice && styles.textInputError]}
-                    placeholder="0.000"
-                    placeholderTextColor="#7891B280"
-                    value={sellPrice}
-                    onChangeText={(text) => {
-                      setSellPrice(format.tndAmount(text));
-                      clearError('sellPrice');
-                    }}
-                    keyboardType="decimal-pad"
-                  />
+                  <View style={[
+                    styles.inputContainer,
+                    focusedField === 'sellPrice' && styles.inputContainerFocused,
+                    errors.sellPrice && styles.inputContainerError
+                  ]}>
+                    <Ionicons name="cash-outline" size={20} color={focusedField === 'sellPrice' ? '#2F80ED' : '#7891B280'} style={styles.inputIcon} />
+                    <TextInput
+                      style={styles.textInputWithIcon}
+                      placeholder="0.000"
+                      placeholderTextColor="#7891B280"
+                      value={sellPrice}
+                      onChangeText={(text) => {
+                        setSellPrice(format.tndAmount(text));
+                        clearError('sellPrice');
+                      }}
+                      onFocus={() => setFocusedField('sellPrice')}
+                      onBlur={() => setFocusedField(null)}
+                      keyboardType="decimal-pad"
+                    />
+                  </View>
                   {errors.sellPrice ? <Text style={styles.fieldError}>{errors.sellPrice}</Text> : null}
                 </View>
 
@@ -528,21 +628,29 @@ export function P2PMarketplaceScreen() {
                 </View>
               </View>
 
-              {/* Description */}
               <View style={styles.inputGroup}>
                 <Text style={styles.inputLabel}>Description de l'article</Text>
-                <TextInput
-                  style={[styles.textInput, { minHeight: 60 }, errors.sellDesc && styles.textInputError]}
-                  placeholder="Décrivez l'état de l'article, ses caractéristiques..."
-                  placeholderTextColor="#7891B280"
-                  multiline
-                  value={sellDesc}
-                  onChangeText={(text) => {
-                    setSellDesc(text);
-                    clearError('sellDesc');
-                  }}
-                  maxLength={1000}
-                />
+                <View style={[
+                  styles.inputContainer,
+                  { minHeight: 48 },
+                  focusedField === 'sellDesc' && styles.inputContainerFocused,
+                  errors.sellDesc && styles.inputContainerError
+                ]}>
+                  <Ionicons name="create-outline" size={20} color={focusedField === 'sellDesc' ? '#2F80ED' : '#7891B280'} style={styles.inputIcon} />
+                  <TextInput
+                    style={styles.textInputWithIcon}
+                    placeholder="Décrivez l'état de l'article, ses caractéristiques..."
+                    placeholderTextColor="#7891B280"
+                    value={sellDesc}
+                    onChangeText={(text) => {
+                      setSellDesc(text);
+                      clearError('sellDesc');
+                    }}
+                    onFocus={() => setFocusedField('sellDesc')}
+                    onBlur={() => setFocusedField(null)}
+                    maxLength={1000}
+                  />
+                </View>
                 {errors.sellDesc ? <Text style={styles.fieldError}>{errors.sellDesc}</Text> : null}
               </View>
 
@@ -567,17 +675,26 @@ export function P2PMarketplaceScreen() {
 
               <View style={styles.inputGroup}>
                 <Text style={styles.inputLabel}>Numéro de Contact</Text>
-                <TextInput
-                  style={[styles.textInput, errors.sellContact && styles.textInputError]}
-                  placeholder="+216 22 123 456"
-                  placeholderTextColor="#7891B280"
-                  value={sellContact}
-                  onChangeText={(text) => {
-                    setSellContact(format.tunisianPhone(text));
-                    clearError('sellContact');
-                  }}
-                  keyboardType="phone-pad"
-                />
+                <View style={[
+                  styles.inputContainer,
+                  focusedField === 'sellContact' && styles.inputContainerFocused,
+                  errors.sellContact && styles.inputContainerError
+                ]}>
+                  <Ionicons name="call-outline" size={20} color={focusedField === 'sellContact' ? '#2F80ED' : '#7891B280'} style={styles.inputIcon} />
+                  <TextInput
+                    style={styles.textInputWithIcon}
+                    placeholder="+216 22 123 456"
+                    placeholderTextColor="#7891B280"
+                    value={sellContact}
+                    onChangeText={(text) => {
+                      setSellContact(format.tunisianPhone(text));
+                      clearError('sellContact');
+                    }}
+                    onFocus={() => setFocusedField('sellContact')}
+                    onBlur={() => setFocusedField(null)}
+                    keyboardType="phone-pad"
+                  />
+                </View>
                 {errors.sellContact ? <Text style={styles.fieldError}>{errors.sellContact}</Text> : null}
               </View>
 
@@ -844,14 +961,62 @@ export function P2PMarketplaceScreen() {
             <ScrollView contentContainerStyle={styles.chatScroll} showsVerticalScrollIndicator={false}>
               {chatHistory.map((msg, index) => {
                 const isSeller = msg.sender === 'seller';
+                const isOffer = msg.type === 'offer';
                 return (
                   <View 
                     key={index} 
                     style={[styles.chatBubbleContainer, isSeller ? styles.bubbleLeft : styles.bubbleRight]}
                   >
-                    <View style={[styles.chatBubble, isSeller ? styles.chatBubbleSeller : styles.chatBubbleUser]}>
-                      <Text style={styles.chatBubbleText}>{msg.text}</Text>
-                    </View>
+                    {isOffer ? (
+                      <View style={{
+                        backgroundColor: 'rgba(9, 30, 54, 0.65)',
+                        borderColor: msg.offerStatus === 'accepted' ? '#27AE60' : msg.offerStatus === 'declined' ? '#FF5353' : '#1B5B9F50',
+                        borderWidth: 1.2,
+                        borderRadius: 16,
+                        padding: 12,
+                        width: 230,
+                        gap: 6
+                      }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                          <Ionicons name="pricetag-outline" size={16} color="#ECC863" />
+                          <Text style={{ fontSize: 13, fontWeight: '700', color: '#ECC863' }}>Offre de prix</Text>
+                        </View>
+                        <Text style={{ color: '#F7FAFF', fontSize: 16, fontWeight: '800' }}>
+                          {msg.offerPrice?.toFixed(3)} TND
+                        </Text>
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 2 }}>
+                          <Text style={{ fontSize: 11, color: '#7891B2' }}>Statut :</Text>
+                          <Text style={{ 
+                            fontSize: 11, 
+                            fontWeight: '800', 
+                            color: msg.offerStatus === 'accepted' ? '#27AE60' : msg.offerStatus === 'declined' ? '#FF5353' : '#7891B2' 
+                          }}>
+                            {msg.offerStatus === 'accepted' ? 'ACCEPTÉ ✓' : msg.offerStatus === 'declined' ? 'REFUSÉ ✗' : 'EN ATTENTE...'}
+                          </Text>
+                        </View>
+                        {msg.offerStatus === 'accepted' && (
+                          <Pressable 
+                            style={{ 
+                              backgroundColor: '#2F80ED', 
+                              borderRadius: 10, 
+                              paddingVertical: 8, 
+                              alignItems: 'center', 
+                              marginTop: 6 
+                            }}
+                            onPress={() => {
+                              setIsChatModalVisible(false);
+                              if (chatProduct) handleInitiateP2PBuy(chatProduct);
+                            }}
+                          >
+                            <Text style={{ color: '#F7FAFF', fontSize: 12, fontWeight: '800' }}>Acheter à ce prix 💳</Text>
+                          </Pressable>
+                        )}
+                      </View>
+                    ) : (
+                      <View style={[styles.chatBubble, isSeller ? styles.chatBubbleSeller : styles.chatBubbleUser]}>
+                        <Text style={styles.chatBubbleText}>{msg.text}</Text>
+                      </View>
+                    )}
                     <Text style={styles.chatBubbleTime}>{msg.time}</Text>
                   </View>
                 );
@@ -859,7 +1024,38 @@ export function P2PMarketplaceScreen() {
             </ScrollView>
 
             {/* Input Bar */}
-            <View style={styles.chatInputRow}>
+            <View style={[styles.chatInputRow, { gap: 8 }]}>
+              <Pressable 
+                style={{ 
+                  backgroundColor: 'rgba(236, 200, 99, 0.15)', 
+                  borderColor: '#ECC863', 
+                  borderWidth: 1, 
+                  borderRadius: 14, 
+                  width: 44, 
+                  height: 44, 
+                  justifyContent: 'center', 
+                  alignItems: 'center' 
+                }}
+                onPress={() => {
+                  if (!chatProduct) return;
+                  const price10 = (chatProduct.price * 0.9).toFixed(3);
+                  const price15 = (chatProduct.price * 0.85).toFixed(3);
+                  const price25 = (chatProduct.price * 0.75).toFixed(3);
+                  Alert.alert(
+                    "Négocier le prix",
+                    "Choisissez une proposition de prix rapide :",
+                    [
+                      { text: `${price10} TND (-10%)`, onPress: () => handleMakeOffer(price10) },
+                      { text: `${price15} TND (-15%)`, onPress: () => handleMakeOffer(price15) },
+                      { text: `${price25} TND (-25%)`, onPress: () => handleMakeOffer(price25) },
+                      { text: "Annuler", style: "cancel" }
+                    ]
+                  );
+                }}
+              >
+                <Ionicons name="pricetag" size={20} color="#ECC863" />
+              </Pressable>
+
               <TextInput
                 style={styles.chatInput}
                 placeholder="Votre message..."
@@ -1161,8 +1357,36 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     fontSize: 14,
   },
+  textInputFocused: {
+    borderColor: '#2F80ED',
+  },
   textInputError: {
     borderColor: '#FF5353',
+  },
+  inputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#091E36',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#1B5B9F50',
+    paddingHorizontal: 14,
+    height: 48,
+  },
+  inputContainerFocused: {
+    borderColor: '#2F80ED',
+  },
+  inputContainerError: {
+    borderColor: '#FF5353',
+  },
+  inputIcon: {
+    marginRight: 10,
+  },
+  textInputWithIcon: {
+    flex: 1,
+    color: '#F7FAFF',
+    fontSize: 14,
+    height: '100%',
   },
   fieldError: {
     color: '#FF5353',

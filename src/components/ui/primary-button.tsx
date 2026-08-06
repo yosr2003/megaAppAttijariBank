@@ -46,5 +46,5 @@ const styles = StyleSheet.create({
   button: { alignItems: 'center', justifyContent: 'center' },
   label: { },
   disabled: { opacity: 0.5 },
-  pressed: { opacity: 0.85 },
+  pressed: { opacity: 0.9, transform: [{ scale: 0.98 }] },
 });

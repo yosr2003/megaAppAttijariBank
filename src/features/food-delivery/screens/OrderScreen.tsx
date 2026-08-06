@@ -7,11 +7,12 @@ import {
 import { useTheme } from "@/src/hooks/use-theme";
 import { useFormValidation } from "@/src/hooks/use-form-validation";
 import { useFoodCartStore } from "@/src/store/food-cart-store";
+import { useFoodPromoStore } from "@/src/store/food-promo-store";
 import { V } from "@/src/utils/form-validation";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View, Modal, FlatList } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MOCK_ADDRESSES } from "../mocks";
 import { dbService, WalletCard } from "@/src/services/db-service";
@@ -47,9 +48,12 @@ export function OrderScreen() {
   const [notes, setNotes] = useState("");
 
   // Promo Code State
+  const { unlockedCoupons, useCoupon } = useFoodPromoStore();
   const [promoCode, setPromoCode] = useState("");
   const [discountAmount, setDiscountAmount] = useState(0);
   const [isPromoApplied, setIsPromoApplied] = useState(false);
+  const [appliedCouponCode, setAppliedCouponCode] = useState<string | null>(null);
+  const [isCouponPickerVisible, setIsCouponPickerVisible] = useState(false);
 
   // Face ID Modal State
   const [isFaceIdVisible, setIsFaceIdVisible] = useState(false);
@@ -85,13 +89,43 @@ export function OrderScreen() {
   const primaryWalletBalance = userCards.reduce((acc, c) => acc + (c.balance || 0), 0);
   const hasSufficientWalletBalance = primaryWalletBalance >= finalTotal;
 
+  const applyCouponByObject = (coupon: any) => {
+    if (subtotal < coupon.minOrder) {
+      Alert.alert(
+        "Montant minimal non atteint",
+        `Le montant minimum de commande pour ce coupon est de ${coupon.minOrder.toFixed(3)} TND.`
+      );
+      return;
+    }
+    
+    let discount = 0;
+    if (coupon.discountType === "percent") {
+      discount = subtotal * (coupon.discountValue / 100);
+    } else if (coupon.discountType === "amount") {
+      discount = coupon.discountValue;
+    } else if (coupon.discountType === "free_delivery") {
+      discount = deliveryFee;
+    }
+
+    setDiscountAmount(discount);
+    setAppliedCouponCode(coupon.code);
+    setIsPromoApplied(true);
+    setPromoCode(coupon.code);
+    setIsCouponPickerVisible(false);
+    Alert.alert("Coupon Appliqué! 🎉", `Réduction de ${discount.toFixed(3)} TND appliquée.`);
+  };
+
   const handleApplyPromo = () => {
-    if (promoCode.trim().toUpperCase() === "TOUNSI") {
+    const code = promoCode.trim().toUpperCase();
+    const found = unlockedCoupons.find(c => c.code === code);
+    if (found) {
+      applyCouponByObject(found);
+    } else if (code === "TOUNSI") {
       setDiscountAmount(3.0);
       setIsPromoApplied(true);
       Alert.alert("Code Promo Appliqué 🎉", "Réduction de 3.000 TND appliquée !");
     } else {
-      Alert.alert("Code Promo Invalide", "Utilisez le code 'TOUNSI' pour tester.");
+      Alert.alert("Code Promo Invalide", "Ce code n'existe pas ou a expiré.");
     }
   };
 
@@ -166,6 +200,9 @@ export function OrderScreen() {
         }
       );
 
+      if (appliedCouponCode) {
+        useCoupon(appliedCouponCode);
+      }
       clearCart();
       router.replace("/food-delivery/order-tracking" as any);
     } catch (err) {
@@ -441,11 +478,16 @@ export function OrderScreen() {
 
           {/* 4. Promo Code */}
           <View style={{ paddingHorizontal: theme.spacing.md, marginBottom: theme.spacing.md }}>
-            <SectionTitle title="Code Promo" />
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+              <SectionTitle title="Code Promo" style={{ marginBottom: 0 }} />
+              <Pressable onPress={() => setIsCouponPickerVisible(true)}>
+                <Text style={{ fontSize: 13, fontWeight: '700', color: '#2F80ED' }}>Sélectionner un coupon 🎟️</Text>
+              </Pressable>
+            </View>
             <View style={{ flexDirection: 'row', gap: 10 }}>
               <View style={{ flex: 1 }}>
                 <Input
-                  placeholder="Tapez 'TOUNSI' pour 3.000 TND de réduction"
+                  placeholder="Tapez le code de votre coupon"
                   value={promoCode}
                   onChangeText={setPromoCode}
                   autoCapitalize="characters"
@@ -474,9 +516,9 @@ export function OrderScreen() {
 
               {isPromoApplied && (
                 <View style={styles.summaryRow}>
-                  <Text style={[styles.summaryLabel, { color: "#00A082", fontWeight: '700' }]}>Réduction Code Promo</Text>
+                  <Text style={[styles.summaryLabel, { color: "#00A082", fontWeight: '700' }]}>Réduction Coupon</Text>
                   <Text style={[styles.summaryValue, { color: "#00A082", fontWeight: '800' }]}>
-                    -3.000 TND
+                    -{discountAmount.toFixed(3)} TND
                   </Text>
                 </View>
               )}
@@ -536,6 +578,64 @@ export function OrderScreen() {
           }}
           onClose={() => setIsMapVisible(false)}
         />
+
+        {/* 🎟️ CHECKOUT COUPON PICKER MODAL */}
+        <Modal visible={isCouponPickerVisible} transparent animationType="slide">
+          <View style={{ flex: 1, backgroundColor: 'rgba(3, 12, 22, 0.9)', justifyContent: 'center', alignItems: 'center' }}>
+            <View style={{ backgroundColor: theme.colors.surface, width: '90%', maxHeight: '75%', borderRadius: 24, padding: 24, borderColor: '#2F80ED40', borderWidth: 1.2 }}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', width: '100%', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: theme.colors.border + '20', paddingBottom: 10, marginBottom: 16 }}>
+                <Text style={{ fontSize: 18, fontWeight: '800', color: theme.colors.textPrimary }}>Mes Coupons 🎟️</Text>
+                <Pressable onPress={() => setIsCouponPickerVisible(false)}>
+                  <Ionicons name="close" size={24} color={theme.colors.textPrimary} />
+                </Pressable>
+              </View>
+
+              <ScrollView contentContainerStyle={{ gap: 12 }} showsVerticalScrollIndicator={false}>
+                {unlockedCoupons.length === 0 ? (
+                  <View style={{ alignItems: 'center', paddingVertical: 40, gap: 8 }}>
+                    <Ionicons name="ticket-outline" size={48} color="#7891B260" />
+                    <Text style={{ fontSize: 14, fontWeight: '700', color: theme.colors.textPrimary }}>Aucun coupon actif</Text>
+                    <Text style={{ fontSize: 12, color: theme.colors.textSecondary, textAlign: 'center' }}>Retournez à l'écran d'accueil et lancez la Roue de la Fortune pour gagner des coupons de réduction !</Text>
+                  </View>
+                ) : (
+                  unlockedCoupons.map((coupon) => {
+                    const isSelectable = subtotal >= coupon.minOrder;
+                    return (
+                      <Pressable
+                        key={coupon.code}
+                        onPress={() => applyCouponByObject(coupon)}
+                        style={{
+                          backgroundColor: theme.mode === 'dark' ? '#091E36' : '#F7FAFF',
+                          borderStyle: 'dashed',
+                          borderWidth: 1.5,
+                          borderColor: isSelectable ? '#2F80ED' : '#7891B240',
+                          borderRadius: 16,
+                          padding: 14,
+                          gap: 4,
+                          opacity: isSelectable ? 1 : 0.6
+                        }}
+                      >
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <Text style={{ fontSize: 14, fontWeight: '800', color: isSelectable ? '#2F80ED' : theme.colors.textSecondary }}>{coupon.title}</Text>
+                          <View style={{ backgroundColor: isSelectable ? 'rgba(47, 128, 237, 0.15)' : 'rgba(120, 145, 178, 0.1)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 }}>
+                            <Text style={{ fontSize: 11, fontWeight: '900', color: isSelectable ? '#2F80ED' : theme.colors.textSecondary }}>{coupon.code}</Text>
+                          </View>
+                        </View>
+                        <Text style={{ fontSize: 11, color: theme.colors.textSecondary }}>Min. commande: {coupon.minOrder.toFixed(3)} TND</Text>
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 }}>
+                          <Text style={{ fontSize: 11, color: theme.colors.textSecondary }}>Exp: {coupon.expiryDate}</Text>
+                          {!isSelectable && (
+                            <Text style={{ fontSize: 11, fontWeight: '700', color: '#FF5353' }}>Sous-total insuffisant</Text>
+                          )}
+                        </View>
+                      </Pressable>
+                    );
+                  })
+                )}
+              </ScrollView>
+            </View>
+          </View>
+        </Modal>
       </SafeAreaView>
     </Screen>
   );

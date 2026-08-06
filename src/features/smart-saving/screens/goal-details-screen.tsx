@@ -8,9 +8,10 @@ import { Card, PrimaryButton, Screen, SectionTitle } from '@/src/components/ui';
 import { Goal3DBuilder } from '../components/goal-3d-builder';
 import { useTheme } from '@/src/hooks/use-theme';
 import { useFormValidation } from '@/src/hooks/use-form-validation';
-import { dbService, SavingsGoal } from '@/src/services/db-service';
+import { dbService, SavingsGoal, WalletCard } from '@/src/services/db-service';
 import { format, V } from '@/src/utils/form-validation';
 import { useGoalBlueprint } from '../hooks/use-goal-blueprint';
+import { useDb } from '@/src/hooks/use-db';
 
 /** Detailed view of a goal with local contribution controls. */
 export function GoalDetailsScreen() {
@@ -19,12 +20,17 @@ export function GoalDetailsScreen() {
   const theme = useTheme();
   const styles = createStyles(theme);
   const { errors, validate, clearError, clearAll } = useFormValidation();
+  const { userId } = useDb();
 
   const [goal, setGoal] = useState<SavingsGoal | null>(null);
   const [loading, setLoading] = useState(true);
   const [isDepositModalVisible, setIsDepositModalVisible] = useState(false);
   const [depositAmount, setDepositAmount] = useState('');
   const [buildTrigger, setBuildTrigger] = useState(0);
+
+  // Wallet Cards Integration
+  const [cards, setCards] = useState<WalletCard[]>([]);
+  const [selectedCardId, setSelectedCardId] = useState<string>('');
 
   // Gemini-powered blueprint: classifies the goal and picks the right 3D shape + colours.
   // Falls back to local keyword matching if Gemini is unavailable.
@@ -34,10 +40,18 @@ export function GoalDetailsScreen() {
   );
 
   const fetchGoalDetails = async () => {
-    if (!id) return;
+    if (!id || !userId) return;
     try {
       setLoading(true);
-      setGoal(await dbService.getSavingsGoal(id));
+      const [fetchedGoal, fetchedCards] = await Promise.all([
+        dbService.getSavingsGoal(id),
+        dbService.getCards(userId)
+      ]);
+      setGoal(fetchedGoal);
+      setCards(fetchedCards);
+      if (fetchedCards.length > 0) {
+        setSelectedCardId(fetchedCards[0].id || '');
+      }
     } catch (e) {
       console.error("Error loading goal details:", e);
       Alert.alert("Erreur", "Impossible de charger les détails de l'objectif.");
@@ -47,11 +61,13 @@ export function GoalDetailsScreen() {
   };
 
   useEffect(() => {
-    fetchGoalDetails();
-  }, [id]);
+    if (userId) {
+      fetchGoalDetails();
+    }
+  }, [id, userId]);
 
   const handleAddContribution = async () => {
-    if (!goal || !goal.id) return;
+    if (!goal || !goal.id || !userId) return;
 
     const remaining = Math.max(0, Number(goal.goal_amount) - Number(goal.current_amount));
     const isValid = validate({
@@ -59,13 +75,43 @@ export function GoalDetailsScreen() {
     });
     if (!isValid) return;
 
+    const selectedCard = cards.find(c => c.id === selectedCardId);
+    if (!selectedCard) {
+      Alert.alert("Erreur", "Veuillez sélectionner un moyen de paiement.");
+      return;
+    }
+
+    const amountToAdd = parseFloat(depositAmount);
+    if (Number(selectedCard.balance) < amountToAdd) {
+      Alert.alert(
+        "Solde insuffisant",
+        `Le solde de la carte sélectionnée (${Number(selectedCard.balance).toFixed(3)} TND) est insuffisant pour verser ${amountToAdd.toFixed(3)} TND.`
+      );
+      return;
+    }
+
     try {
       setLoading(true);
-      const amountToAdd = parseFloat(depositAmount);
       const previousProgress = Number(goal.goal_amount) > 0
         ? Number(goal.current_amount) / Number(goal.goal_amount)
         : 0;
 
+      // 1. Deduct amount from selected card balance
+      const newBalance = Number(selectedCard.balance) - amountToAdd;
+      await dbService.updateCardBalance(selectedCardId, newBalance);
+
+      // 2. Log transaction in wallet
+      await dbService.createTransaction({
+        user_id: userId,
+        card_id: selectedCardId,
+        title: `Épargne: ${goal.title}`,
+        category: "Savings",
+        amount: -amountToAdd,
+        currency: "TND",
+        icon: "wallet-outline"
+      });
+
+      // 3. Update the savings goal current amount
       await dbService.depositToSavingsGoal(goal.id, goal.current_amount, amountToAdd);
 
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -238,6 +284,54 @@ export function GoalDetailsScreen() {
               Combien souhaitez-vous ajouter à "{goal.title}" ?
             </Text>
 
+            {/* Card Selector */}
+            <View style={[styles.inputGroup, { marginBottom: 14 }]}>
+              <Text style={styles.inputLabel}>Moyen de paiement</Text>
+              {cards.length > 0 ? (
+                <View style={{ gap: 8, marginTop: 6 }}>
+                  {cards.map((card) => {
+                    const isActive = selectedCardId === card.id;
+                    return (
+                      <Pressable
+                        key={card.id}
+                        style={[
+                          styles.cardSelectorItem,
+                          isActive && styles.cardSelectorItemActive,
+                          {
+                            backgroundColor: theme.colors.surfaceSubtle,
+                            borderColor: theme.colors.border + '40',
+                          },
+                          isActive && {
+                            backgroundColor: '#2F80ED15',
+                            borderColor: '#2F80ED',
+                          }
+                        ]}
+                        onPress={() => setSelectedCardId(card.id || '')}
+                      >
+                        <Ionicons 
+                          name={isActive ? "radio-button-on-outline" : "radio-button-off-outline"} 
+                          size={18} 
+                          color={isActive ? "#2F80ED" : theme.colors.textSecondary} 
+                        />
+                        <View style={{ flex: 1, marginLeft: 8 }}>
+                          <Text style={{ fontSize: 13, fontWeight: '700', color: theme.colors.textPrimary }}>
+                            {card.card_type} (•••• {card.card_number.slice(-4)})
+                          </Text>
+                          <Text style={{ fontSize: 11, color: '#27AE60', fontWeight: '600' }}>
+                            Solde: {Number(card.balance).toFixed(3)} TND
+                          </Text>
+                        </View>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              ) : (
+                <Text style={{ color: theme.colors.danger, fontSize: 12 }}>
+                  Aucune carte de paiement disponible. Veuillez d'abord en ajouter une dans le portefeuille.
+                </Text>
+              )}
+            </View>
+
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>Montant du Dépôt (TND)</Text>
               <TextInput
@@ -253,7 +347,6 @@ export function GoalDetailsScreen() {
                   clearError('depositAmount');
                 }}
                 keyboardType="decimal-pad"
-                autoFocus
               />
               {errors.depositAmount ? (
                 <Text style={[styles.fieldError, { color: theme.colors.danger }]}>
@@ -272,7 +365,11 @@ export function GoalDetailsScreen() {
               >
                 <Text style={styles.buttonCancelText}>Annuler</Text>
               </Pressable>
-              <Pressable style={styles.buttonSubmit} onPress={handleAddContribution}>
+              <Pressable 
+                style={[styles.buttonSubmit, cards.length === 0 && { backgroundColor: theme.colors.textSecondary + '40' }]} 
+                disabled={cards.length === 0} 
+                onPress={handleAddContribution}
+              >
                 <Text style={styles.buttonSubmitText}>Confirmer</Text>
               </Pressable>
             </View>
@@ -403,6 +500,15 @@ const createStyles = (theme: ReturnType<typeof useTheme>) =>
       paddingVertical: 12,
       fontSize: 14,
     },
+    cardSelectorItem: {
+      width: '100%',
+      borderRadius: 12,
+      borderWidth: 1.2,
+      padding: 10,
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    cardSelectorItemActive: {},
     fieldError: {
       fontSize: 12,
       marginTop: 4,

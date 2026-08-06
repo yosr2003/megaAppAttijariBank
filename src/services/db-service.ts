@@ -1,3 +1,5 @@
+import { apiService } from './api-service';
+export const USE_BACKEND = true;
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export interface WalletCard { id?: string; user_id: string; card_number: string; cardholder_name: string; expiry_date: string; card_type: 'Platinum' | 'Gold' | 'Virtual'; status: 'active' | 'inactive'; balance: number; created_at?: string; }
@@ -75,7 +77,7 @@ async function updateDatabase<T>(update: (database: LocalDatabase) => T): Promis
   return result;
 }
 
-export const dbService = {
+const localDbService = {
   async getCards(userId: string) { return (await readDatabase()).cards.filter((card) => card.user_id === userId).sort((a, b) => (b.created_at ?? '').localeCompare(a.created_at ?? '')); },
   async createCard(card: Omit<WalletCard, 'id' | 'created_at'>) { return updateDatabase((db) => { const created = { ...card, id: id(), created_at: now() }; db.cards.unshift(created); return created; }); },
   async updateCardBalance(cardId: string, balance: number) { await updateDatabase((db) => { const card = db.cards.find((item) => item.id === cardId); if (!card) throw new Error('Card not found'); card.balance = balance; }); },
@@ -172,3 +174,5 @@ export const dbService = {
   },
 };
 
+
+export const dbService = USE_BACKEND ? apiService : localDbService;
