@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, Text, View, Pressable, ScrollView, ActivityIndicator, Alert, Modal, TextInput, FlatList, Image } from 'react-native';
+import { StyleSheet, Text, View, Pressable, ScrollView, ActivityIndicator, Alert, Modal, TextInput, FlatList, Image, KeyboardAvoidingView, Keyboard, Platform, TouchableWithoutFeedback } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -1016,7 +1016,10 @@ export function P2PMarketplaceScreen() {
       {/* 4. CHAT WITH SELLER OVERLAY MODAL */}
       <Modal visible={isChatModalVisible} transparent animationType="slide" onRequestClose={() => setIsChatModalVisible(false)}>
         <SafeAreaView edges={['top']} style={styles.slideModalOverlay}>
-          <View style={styles.slideModalContent}>
+          <KeyboardAvoidingView 
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            style={styles.slideModalContent}
+          >
             <View style={styles.modalHeaderRow}>
               <View style={styles.chatTitleRow}>
                 <Ionicons name="chatbubble-ellipses-outline" size={22} color="#2F80ED" />
@@ -1189,7 +1192,7 @@ export function P2PMarketplaceScreen() {
                 <Ionicons name="send" size={16} color="#F7FAFF" />
               </Pressable>
             </View>
-          </View>
+          </KeyboardAvoidingView>
         </SafeAreaView>
       </Modal>
 
