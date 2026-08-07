@@ -176,4 +176,29 @@ const localDbService = {
 };
 
 
-export const dbService = USE_BACKEND ? apiService : localDbService;
+const makeSafeDbService = () => {
+  const handler = {
+    get(target: any, prop: string) {
+      return async (...args: any[]) => {
+        if (USE_BACKEND) {
+          try {
+            const apiMethod = (apiService as any)[prop];
+            if (apiMethod) {
+              return await apiMethod(...args);
+            }
+          } catch (e: any) {
+            console.warn(`Backend request for "${prop}" failed, falling back to Local Storage:`, e.message);
+          }
+        }
+        const localMethod = (localDbService as any)[prop];
+        if (localMethod) {
+          return await localMethod(...args);
+        }
+        throw new Error(`Method ${prop} not found in database service.`);
+      };
+    }
+  };
+  return new Proxy({}, handler);
+};
+
+export const dbService = makeSafeDbService() as typeof localDbService;

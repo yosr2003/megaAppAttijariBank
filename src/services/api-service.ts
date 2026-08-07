@@ -12,7 +12,7 @@ const API_URL = Constants.expoConfig?.extra?.EXPO_PUBLIC_API_URL || process.env.
 
 const api = axios.create({
   baseURL: API_URL,
-  timeout: 10000,
+  timeout: 2500,
 });
 
 export const apiService = {
