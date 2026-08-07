@@ -202,7 +202,7 @@ function VoxelBlock({
         ]}
       />
       {/* Shine highlight on top */}
-      <View style={[styles.blockShine, { width: blockSize * 0.32, backgroundColor: '#FFFFFF' }]} />
+      <View style={[styles.blockShine, { width: blockSize * 0.32, backgroundColor: '#FFFFFF', opacity: 0.65 }]} />
       {/* Front face */}
       <View
         style={[
@@ -214,7 +214,16 @@ function VoxelBlock({
             borderBottomLeftRadius: 5,
           },
         ]}
-      />
+      >
+        {/* Kawaii Face Overlay */}
+        {(index % 4 === 0) && (
+          <View style={{ position: 'absolute', top: 2, left: 0, right: 0, bottom: 0, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 5 }}>
+            <View style={{ width: 3, height: 3, borderRadius: 1.5, backgroundColor: 'rgba(18, 24, 38, 0.8)' }} />
+            <Text style={{ fontSize: 7, color: 'rgba(18, 24, 38, 0.8)', fontWeight: '900', marginTop: -3 }}>‿</Text>
+            <View style={{ width: 3, height: 3, borderRadius: 1.5, backgroundColor: 'rgba(18, 24, 38, 0.8)' }} />
+          </View>
+        )}
+      </View>
       {/* Side face */}
       <View
         style={[
@@ -235,7 +244,8 @@ function VoxelBlock({
             width: blockSize + 2,
             height: blockSize + 2,
             borderRadius: 6,
-            borderColor: '#FFFFFF44',
+            borderColor: '#121826',
+            borderWidth: 1.5,
           },
         ]}
       />
