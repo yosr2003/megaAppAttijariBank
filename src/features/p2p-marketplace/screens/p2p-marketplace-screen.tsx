@@ -942,6 +942,19 @@ export function P2PMarketplaceScreen() {
                         color={isFavorited(selectedProduct.id!) ? "#FF5353" : "#F7FAFF"} 
                       />
                     </Pressable>
+
+                    {selectedProduct.user_id === userId && (
+                      <Pressable 
+                        style={[styles.detailActionBtn, { backgroundColor: 'rgba(255, 83, 83, 0.15)', marginLeft: 8 }]} 
+                        onPress={() => handleDeleteProduct(selectedProduct.id!)}
+                      >
+                        <Ionicons 
+                          name="trash-outline" 
+                          size={20} 
+                          color="#FF5353" 
+                        />
+                      </Pressable>
+                    )}
                   </View>
                 </View>
 
@@ -1004,33 +1017,21 @@ export function P2PMarketplaceScreen() {
 
                 {/* Actions Buttons */}
                 <View style={styles.rowButtons}>
-                  {selectedProduct.user_id === userId ? (
-                    <Pressable 
-                      style={[styles.buttonSubmit, { backgroundColor: '#FF5353', flex: 1 }]}
-                      onPress={() => handleDeleteProduct(selectedProduct.id)}
-                    >
-                      <Ionicons name="trash-outline" size={18} color="#FFF" style={{ marginRight: 6 }} />
-                      <Text style={[styles.buttonSubmitText, { color: '#FFF' }]}>Supprimer l'annonce</Text>
-                    </Pressable>
-                  ) : (
-                    <>
-                      <Pressable 
-                        style={[styles.buttonSubmit, { backgroundColor: '#FFC244', marginRight: 6 }]}
-                        onPress={() => handleInitiateP2PBuy(selectedProduct)}
-                      >
-                        <Ionicons name="lock-closed" size={18} color="#000" style={{ marginRight: 6 }} />
-                        <Text style={[styles.buttonSubmitText, { color: '#000', fontWeight: '800' }]}>Acheter (Escrow)</Text>
-                      </Pressable>
-                      
-                      <Pressable 
-                        style={[styles.buttonSubmit, { backgroundColor: '#12C979' }]}
-                        onPress={() => openChatWithSeller(selectedProduct)}
-                      >
-                        <Ionicons name="chatbubbles-outline" size={18} color="#F7FAFF" style={{ marginRight: 6 }} />
-                        <Text style={styles.buttonSubmitText}>Négocier</Text>
-                      </Pressable>
-                    </>
-                  )}
+                  <Pressable 
+                    style={[styles.buttonSubmit, { backgroundColor: '#FFC244', marginRight: 6 }]}
+                    onPress={() => handleInitiateP2PBuy(selectedProduct)}
+                  >
+                    <Ionicons name="lock-closed" size={18} color="#000" style={{ marginRight: 6 }} />
+                    <Text style={[styles.buttonSubmitText, { color: '#000', fontWeight: '800' }]}>Acheter (Escrow)</Text>
+                  </Pressable>
+                  
+                  <Pressable 
+                    style={[styles.buttonSubmit, { backgroundColor: '#12C979' }]}
+                    onPress={() => openChatWithSeller(selectedProduct)}
+                  >
+                    <Ionicons name="chatbubbles-outline" size={18} color="#F7FAFF" style={{ marginRight: 6 }} />
+                    <Text style={styles.buttonSubmitText}>Négocier</Text>
+                  </Pressable>
                 </View>
               </ScrollView>
             </View>
