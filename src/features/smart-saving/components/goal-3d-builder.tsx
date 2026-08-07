@@ -178,7 +178,7 @@ export function Goal3DBuilder({
         );
 
       case 'plane':
-      default:
+      case 'plane':
         return (
           <View style={styles.container3D}>
             {/* Travel Jet */}
@@ -191,6 +191,57 @@ export function Goal3DBuilder({
                 <Animated.View style={[styles.planeFillColor, fillPercentStyle]} />
                 {/* Cockpit Window */}
                 <View style={[styles.planeCockpit, { opacity: hasWindshield ? 1 : 0.25 }]} />
+              </View>
+            </View>
+            <View style={styles.groundShadow} />
+          </View>
+        );
+
+      default: // Generic Safe/Vault
+        return (
+          <View style={styles.container3D}>
+            {/* 3D Savings Chest/Vault */}
+            <View style={{
+              width: 90,
+              height: 90,
+              backgroundColor: '#1E293B',
+              borderRadius: 16,
+              borderWidth: 2,
+              borderColor: '#64748B',
+              justifyContent: 'flex-end',
+              overflow: 'hidden',
+              position: 'relative'
+            }}>
+              {/* Gold Progress Fill */}
+              <Animated.View style={[{
+                position: 'absolute',
+                left: 0,
+                right: 0,
+                bottom: 0,
+                backgroundColor: '#ECC863',
+              }, fillPercentStyle]} />
+
+              {/* Vault Handle/Lock */}
+              <View style={{
+                position: 'absolute',
+                top: '30%',
+                alignSelf: 'center',
+                width: 32,
+                height: 32,
+                borderRadius: 16,
+                borderWidth: 3,
+                borderColor: '#F8FAFC',
+                backgroundColor: '#334155',
+                justifyContent: 'center',
+                alignItems: 'center',
+                opacity: hasDetails ? 1 : 0.3
+              }}>
+                <View style={{
+                  width: 8,
+                  height: 8,
+                  borderRadius: 4,
+                  backgroundColor: '#F8FAFC'
+                }} />
               </View>
             </View>
             <View style={styles.groundShadow} />

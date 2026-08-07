@@ -275,14 +275,13 @@ export function localBlueprintDefaults(title: string, shape: GoalShape): Omit<Go
     },
   };
 
-  const inferred = inferShapeFromTitle(normalized);
-  return presets[inferred];
+  return presets[shape];
 }
 
 export function inferShapeFromTitle(title: string): GoalShape {
   const t = title.toLowerCase();
   if (/voyage|djerba|vacance|avion|trip|plage|hotel|billet/.test(t)) return 'plane';
-  if (/maison|appart|home|immobil|studio|villa/.test(t)) return 'house';
+  if (/maison|appart|home|house|immobil|studio|villa/.test(t)) return 'house';
   if (/voiture|car|auto|moto|véhicule|vehicle/.test(t)) return 'car';
   if (/phone|téléphone|iphone|samsung|smartphone/.test(t)) return 'phone';
   if (/pc|laptop|macbook|ordinateur|computer|tech/.test(t)) return 'laptop';
