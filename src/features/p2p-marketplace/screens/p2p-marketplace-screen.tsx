@@ -9,6 +9,7 @@ import { useIsFocused } from '@react-navigation/native';
 
 import { StarField, Card } from '@/src/components/ui';
 import { useDb } from '@/src/hooks/use-db';
+import { useTheme } from '@/src/hooks/use-theme';
 import { useFormValidation } from '@/src/hooks/use-form-validation';
 import { dbService, P2PProduct, P2PFavorite, WalletCard } from '@/src/services/db-service';
 import { format, V } from '@/src/utils/form-validation';
@@ -22,6 +23,7 @@ const LOCATIONS = ['Tunis, La Marsa', 'Sousse, Kantaoui', 'Sfax, Ville', 'Djerba
 
 export function P2PMarketplaceScreen() {
   const isFocused = useIsFocused();
+  const theme = useTheme();
   const { userId, isReady } = useDb();
   const { errors, validate, clearError, clearAll } = useFormValidation();
 
@@ -72,6 +74,9 @@ export function P2PMarketplaceScreen() {
   const [sellImages, setSellImages] = useState<string[]>([]);
   const [userCards, setUserCards] = useState<WalletCard[]>([]);
   const [focusedField, setFocusedField] = useState<string | null>(null);
+  const [aiBargainActive, setAiBargainActive] = useState(false);
+  const [aiBargainBudget, setAiBargainBudget] = useState('');
+  const [isBargaining, setIsBargaining] = useState(false);
 
   // Load Marketplace Products & Favorites
   const loadProducts = async () => {
@@ -288,6 +293,71 @@ export function P2PMarketplaceScreen() {
       { sender: 'seller', text: `Bonjour ! Oui, le produit "${product.title}" est toujours disponible. Vous souhaitez le voir ?`, time: '11:00', type: 'text' }
     ]);
     setIsChatModalVisible(true);
+  };
+
+  const runAIBargaining = () => {
+    const budget = parseFloat(aiBargainBudget);
+    if (isNaN(budget) || budget <= 0 || !chatProduct) {
+      Alert.alert("Erreur", "Veuillez entrer un budget max de négociation valide.");
+      return;
+    }
+    
+    if (budget >= chatProduct.price) {
+      Alert.alert("Info", "Votre budget est supérieur ou égal au prix affiché. Vous pouvez acheter directement !");
+      return;
+    }
+
+    setIsBargaining(true);
+    setChatHistory([
+      { sender: 'seller', text: `Bonjour ! Oui, le produit "${chatProduct.title}" est toujours disponible. Vous souhaitez le voir ?`, time: '11:00', type: 'text' }
+    ]);
+
+    // Step 1: User IA initiates offer
+    setTimeout(() => {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      setChatHistory(prev => [...prev, {
+        sender: 'user',
+        text: `🤖 (IA) Salam khouya, n7eb nechri el ${chatProduct.title}. Te9bel fih ${budget.toFixed(3)} TND cash taw?`,
+        time: '11:15',
+        type: 'text'
+      }]);
+    }, 1200);
+
+    // Step 2: Seller declines or makes a counter-offer
+    setTimeout(() => {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      const counterPrice = (chatProduct.price * 0.92).toFixed(3);
+      setChatHistory(prev => [...prev, {
+        sender: 'seller',
+        text: `Mar7ba khouya. Eyy d'origine w ndhif barcha, khsara fih. Chrayek na3mellek soum b ${counterPrice} TND?`,
+        time: '11:16',
+        type: 'text'
+      }]);
+    }, 2800);
+
+    // Step 3: User IA insists on budget
+    setTimeout(() => {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      setChatHistory(prev => [...prev, {
+        sender: 'user',
+        text: `🤖 (IA) Wallah hadha a5er budget andi khouya, w ena serieux n7eb nekhthou taw. 9oul behi w khallina net9ablu.`,
+        time: '11:17',
+        type: 'text'
+      }]);
+    }, 4500);
+
+    // Step 4: Seller accepts!
+    setTimeout(() => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setNegotiatedPrice(budget);
+      setChatHistory(prev => [...prev, {
+        sender: 'seller',
+        text: `Behi yse3dek, mabrouk 3lik khouya! N5alihoulek b ${budget.toFixed(3)} TND. A3mel paiement secure taw net9ablu.`,
+        time: '11:18',
+        type: 'text'
+      }]);
+      setIsBargaining(false);
+    }, 6200);
   };
 
   const handleSendChatMessage = () => {
@@ -955,6 +1025,58 @@ export function P2PMarketplaceScreen() {
               <Pressable onPress={() => setIsChatModalVisible(false)}>
                 <Ionicons name="close-outline" size={24} color="#F7FAFF" />
               </Pressable>
+            </View>
+
+            {/* AI Bargaining Agent Banner & Controls */}
+            <View style={{ backgroundColor: 'rgba(59, 130, 246, 0.08)', borderColor: '#3B82F630', borderWidth: 1, borderRadius: 16, padding: 14, marginHorizontal: 20, marginVertical: 10, gap: 10 }}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <Ionicons name="sparkles" size={16} color="#FFC244" />
+                  <Text style={{ fontSize: 13, fontWeight: '800', color: theme.colors.textPrimary }}>🤖 Négociateur IA Tunisien</Text>
+                </View>
+                <Pressable onPress={() => {
+                  setAiBargainActive(!aiBargainActive);
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                }} style={{ backgroundColor: aiBargainActive ? '#22C55E' : '#334155', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10 }}>
+                  <Text style={{ fontSize: 10, fontWeight: '800', color: '#FFF' }}>{aiBargainActive ? "ACTIF ✓" : "ACTIVER"}</Text>
+                </Pressable>
+              </View>
+              {aiBargainActive && (
+                <View style={{ gap: 8 }}>
+                  <Text style={{ fontSize: 11, color: '#B7C3D0' }}>
+                    Saisissez votre budget maximum. Notre IA négociera automatiquement avec le vendeur en dialecte tunisien !
+                  </Text>
+                  <View style={{ flexDirection: 'row', gap: 10 }}>
+                    <View style={{ flex: 1, backgroundColor: '#00000040', borderRadius: 12, paddingHorizontal: 12, height: 40, justifyContent: 'center' }}>
+                      <TextInput
+                        placeholder="Mon budget max (TND)"
+                        placeholderTextColor="#7891B280"
+                        style={{ color: '#F8FAFC', fontSize: 12 }}
+                        keyboardType="decimal-pad"
+                        value={aiBargainBudget}
+                        onChangeText={setAiBargainBudget}
+                        editable={!isBargaining}
+                      />
+                    </View>
+                    <Pressable
+                      onPress={runAIBargaining}
+                      disabled={isBargaining}
+                      style={{
+                        backgroundColor: '#FFC244',
+                        paddingHorizontal: 14,
+                        borderRadius: 12,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        opacity: isBargaining ? 0.6 : 1
+                      }}
+                    >
+                      <Text style={{ color: '#000', fontSize: 11, fontWeight: '800' }}>
+                        {isBargaining ? "IA en négociation..." : "Négocier ⚡"}
+                      </Text>
+                    </Pressable>
+                  </View>
+                </View>
+              )}
             </View>
 
             {/* Chat List */}

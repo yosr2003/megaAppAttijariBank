@@ -8,7 +8,7 @@ import {
 } from './db-service';
 
 // If physical device, this should point to PC IP
-const API_URL = Constants.expoConfig?.extra?.EXPO_PUBLIC_API_URL || process.env.EXPO_PUBLIC_API_URL || 'http://192.168.1.16:8082/api';
+const API_URL = Constants.expoConfig?.extra?.EXPO_PUBLIC_API_URL || process.env.EXPO_PUBLIC_API_URL || 'http://172.20.10.4:8082/api';
 
 const api = axios.create({
   baseURL: API_URL,
