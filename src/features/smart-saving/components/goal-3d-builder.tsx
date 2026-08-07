@@ -327,7 +327,18 @@ export function Goal3DBuilder({
   const clampedProgress = Math.max(0, Math.min(progress, 1));
   const progressPercent = Math.round(clampedProgress * 100);
 
-  const slots = useMemo(() => getShapeSlots(blueprint.shape), [blueprint.shape]);
+  const slots = useMemo(() => {
+    const rawSlots = getShapeSlots(blueprint.shape);
+    // Sort slots back-to-front:
+    // 1. Bottom layer first (layer ascending)
+    // 2. Back row first (y descending, higher y is further back)
+    // 3. Left-most first (x ascending, lower x is further back)
+    return [...rawSlots].sort((a, b) => {
+      if (a.layer !== b.layer) return a.layer - b.layer;
+      if (a.y !== b.y) return b.y - a.y;
+      return a.x - b.x;
+    });
+  }, [blueprint.shape]);
   const bounds = useMemo(() => getShapeBounds(slots), [slots]);
   const blockCount = slots.length;
 
