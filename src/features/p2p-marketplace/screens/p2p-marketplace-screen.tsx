@@ -285,6 +285,35 @@ export function P2PMarketplaceScreen() {
   };
 
   // Open Chat with Seller
+  
+  const handleDeleteProduct = (productId: string) => {
+    Alert.alert(
+      "Supprimer l'annonce",
+      "Êtes-vous sûr de vouloir supprimer définitivement cette annonce ?",
+      [
+        { text: "Annuler", style: "cancel" },
+        { 
+          text: "Supprimer", 
+          style: "destructive", 
+          onPress: async () => {
+            try {
+              setLoading(true);
+              await dbService.deleteP2PProduct(productId);
+              await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+              setIsDetailModalVisible(false);
+              loadProducts();
+            } catch (err) {
+              console.error("Delete product failed:", err);
+              Alert.alert("Erreur", "Impossible de supprimer l'annonce.");
+            } finally {
+              setLoading(false);
+            }
+          } 
+        }
+      ]
+    );
+  };
+
   const openChatWithSeller = (product: P2PProduct) => {
     setChatProduct(product);
     setNegotiatedPrice(null);

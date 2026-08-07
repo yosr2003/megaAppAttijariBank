@@ -103,6 +103,9 @@ export const apiService = {
     const response = await api.post('/p2p/products', product);
     return response.data;
   },
+  async deleteP2PProduct(productId: string): Promise<void> {
+    await api.delete(`/p2p/products/${productId}`);
+  },
   async getP2PFavorites(userId: string): Promise<P2PFavorite[]> {
     const response = await api.get(`/p2p/favorites/${userId}`);
     return response.data;
