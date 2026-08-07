@@ -19,6 +19,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { PrimaryButton, StarField } from "@/src/components/ui";
 import { useDb } from "@/src/hooks/use-db";
+import { useTheme } from "@/src/hooks/use-theme";
 import { useFormValidation } from "@/src/hooks/use-form-validation";
 import { dbService, WalletDocument } from "@/src/services/db-service";
 import { V } from "@/src/utils/form-validation";
@@ -47,6 +48,7 @@ export function DocumentsScreen() {
   const isFocused = useIsFocused();
   const { errors, validate, clearError, clearAll } = useFormValidation();
   const { userId, isReady } = useDb();
+  const theme = useTheme();
   const [documents, setDocuments] = useState<WalletDocument[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAddModalVisible, setIsAddModalVisible] = useState(false);
@@ -208,7 +210,7 @@ export function DocumentsScreen() {
   );
 
   return (
-    <SafeAreaView edges={["top"]} style={styles.safeArea}>
+    <SafeAreaView edges={["top"]} style={[styles.safeArea, { backgroundColor: theme.colors.background }]}>
       <StatusBar style="light" />
       <StarField />
       <ScrollView
@@ -217,12 +219,12 @@ export function DocumentsScreen() {
       >
         <View style={styles.header}>
           <Pressable onPress={() => router.back()}>
-            <Ionicons name="arrow-back" size={24} color="#F7FAFF" />
+            <Ionicons name="arrow-back" size={24} color={theme.colors.textPrimary} />
           </Pressable>
-          <Text style={styles.title}>Documents</Text>
+          <Text style={[styles.title, { color: theme.colors.textPrimary }]}>Documents</Text>
           <View style={{ width: 24 }} />
         </View>
-        <Text style={styles.subtitle}>
+        <Text style={[styles.subtitle, { color: theme.colors.textSecondary }]}>
           Private records, instantly available when you need them.
         </Text>
 
@@ -297,7 +299,7 @@ export function DocumentsScreen() {
         <View style={styles.slideModalOverlay}>
           <View style={styles.slideModalContent}>
             <View style={styles.modalHeaderRow}>
-              <Text style={styles.modalTitle}>Nouveau Document</Text>
+              <Text style={[styles.modalTitle, { color: theme.colors.textPrimary }]}>Nouveau Document</Text>
               <Pressable onPress={() => setIsAddModalVisible(false)}>
                 <Ionicons name="close-outline" size={24} color="#F7FAFF" />
               </Pressable>
@@ -307,7 +309,7 @@ export function DocumentsScreen() {
               showsVerticalScrollIndicator={false}
             >
               <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Titre du Document</Text>
+                <Text style={[styles.inputLabel, { color: theme.colors.textSecondary }]}>Titre du Document</Text>
                 <View style={[
                   styles.inputContainer,
                   focusedField === 'docTitle' && styles.inputContainerFocused,

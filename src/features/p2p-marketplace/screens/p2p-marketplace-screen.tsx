@@ -552,7 +552,7 @@ export function P2PMarketplaceScreen() {
     });
 
   return (
-    <SafeAreaView edges={['top']} style={styles.safeArea}>
+    <SafeAreaView edges={['top']} style={[styles.safeArea, { backgroundColor: theme.colors.background }]}>
       <StatusBar style="light" />
       <StarField />
       
@@ -574,11 +574,11 @@ export function P2PMarketplaceScreen() {
       </View>
 
       {/* Search and Filters Bar */}
-      <View style={styles.searchBarContainer}>
+      <View style={[styles.searchBarContainer, { backgroundColor: theme.colors.surfaceSubtle, borderColor: theme.colors.border + '30' }]}>
         <View style={styles.searchBox}>
           <Ionicons name="search-outline" size={18} color="#7891B2" />
           <TextInput
-            style={styles.searchInput}
+            style={[styles.searchInput, { color: theme.colors.textPrimary }]}
             placeholder="Rechercher un article..."
             placeholderTextColor="#7891B280"
             value={searchQuery}
@@ -591,7 +591,7 @@ export function P2PMarketplaceScreen() {
           ) : null}
         </View>
 
-        <Pressable style={styles.filterTrigger} onPress={() => setIsFilterModalVisible(true)}>
+        <Pressable style={[styles.filterTrigger, { backgroundColor: theme.colors.surfaceSubtle, borderColor: theme.colors.border + '20' }]} onPress={() => setIsFilterModalVisible(true)}>
           <Ionicons name="options-outline" size={20} color="#2F80ED" />
         </Pressable>
       </View>
@@ -604,10 +604,10 @@ export function P2PMarketplaceScreen() {
             return (
               <Pressable 
                 key={cat} 
-                style={[styles.catBadge, isActive && styles.catBadgeActive]}
+                style={[styles.catBadge, { backgroundColor: theme.colors.surfaceSubtle, borderColor: theme.colors.border + '20' }, isActive && { backgroundColor: theme.colors.primary, borderColor: theme.colors.primary }]}
                 onPress={() => setSelectedCategory(cat)}
               >
-                <Text style={[styles.catText, isActive && styles.catTextActive]}>{cat}</Text>
+                <Text style={[styles.catText, { color: theme.colors.textSecondary }, isActive && { color: theme.colors.primaryOn }]}>{cat}</Text>
               </Pressable>
             );
           })}
@@ -626,7 +626,7 @@ export function P2PMarketplaceScreen() {
           columnWrapperStyle={styles.feedRow}
           showsVerticalScrollIndicator={false}
           renderItem={({ item }) => (
-            <View style={[styles.productCard, { position: 'relative', overflow: 'hidden' }]}>
+            <View style={[styles.productCard, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border + '33', position: 'relative', overflow: 'hidden' }]}>
               <Pressable
                 onPress={() => {
                   setSelectedProduct(item);
@@ -654,11 +654,11 @@ export function P2PMarketplaceScreen() {
 
                 {/* Product Info */}
                 <View style={styles.productMeta}>
-                  <Text style={styles.productPrice}>{Number(item.price).toFixed(3)} TND</Text>
-                  <Text style={styles.productTitle} numberOfLines={1}>{item.title}</Text>
+                  <Text style={[styles.productPrice, { color: theme.colors.accent || '#ECC863' }]}>{Number(item.price).toFixed(3)} TND</Text>
+                  <Text style={[styles.productTitle, { color: theme.colors.textPrimary }]} numberOfLines={1}>{item.title}</Text>
                   <View style={styles.locContainer}>
                     <Ionicons name="location-outline" size={12} color="#7891B2" />
-                    <Text style={styles.productLoc} numberOfLines={1}>{item.location.split(',')[0]}</Text>
+                    <Text style={[styles.productLoc, { color: theme.colors.textSecondary }]} numberOfLines={1}>{item.location.split(',')[0]}</Text>
                   </View>
                 </View>
               </Pressable>
@@ -688,9 +688,9 @@ export function P2PMarketplaceScreen() {
       {/* 1. SELL PRODUCT FORM MODAL */}
       <Modal visible={isSellModalVisible} transparent animationType="slide" onRequestClose={() => setIsSellModalVisible(false)}>
         <View style={styles.slideModalOverlay}>
-          <View style={styles.slideModalContent}>
+          <View style={[styles.slideModalContent, { backgroundColor: theme.colors.surface, borderColor: theme.colors.primary + '30' }]}>
             <View style={styles.modalHeaderRow}>
-              <Text style={styles.modalTitle}>Créer une Annonce</Text>
+              <Text style={[styles.modalTitle, { color: theme.colors.textPrimary }]}>Créer une Annonce</Text>
               <Pressable onPress={() => setIsSellModalVisible(false)}>
                 <Ionicons name="close-outline" size={24} color="#F7FAFF" />
               </Pressable>
@@ -698,7 +698,7 @@ export function P2PMarketplaceScreen() {
 
             <ScrollView contentContainerStyle={styles.formContainer} showsVerticalScrollIndicator={false}>
               <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Titre de l'article</Text>
+                <Text style={[styles.inputLabel, { color: theme.colors.textSecondary }]}>Titre de l'article</Text>
                 <View style={[
                   styles.inputContainer,
                   focusedField === 'sellTitle' && styles.inputContainerFocused,
@@ -706,7 +706,7 @@ export function P2PMarketplaceScreen() {
                 ]}>
                   <Ionicons name="pricetag-outline" size={20} color={focusedField === 'sellTitle' ? '#2F80ED' : '#7891B280'} style={styles.inputIcon} />
                   <TextInput
-                    style={styles.textInputWithIcon}
+                    style={[styles.textInputWithIcon, { color: theme.colors.textPrimary }]}
                     placeholder="ex: Table en bois massif, Samsung S23..."
                     placeholderTextColor="#7891B280"
                     value={sellTitle}
@@ -997,8 +997,8 @@ export function P2PMarketplaceScreen() {
 
                 {/* Description */}
                 <View style={styles.descSection}>
-                  <Text style={styles.descSectionTitle}>Description</Text>
-                  <Text style={styles.descText}>{selectedProduct.description || "Aucune description fournie."}</Text>
+                  <Text style={[styles.descSectionTitle, { color: theme.colors.textPrimary }]}>Description</Text>
+                  <Text style={[styles.descText, { color: theme.colors.textSecondary }]}>{selectedProduct.description || "Aucune description fournie."}</Text>
                 </View>
 
                 {/* Seller Section */}
@@ -1009,8 +1009,8 @@ export function P2PMarketplaceScreen() {
                       <Ionicons name="person-circle-outline" size={40} color="#7891B2" />
                     </View>
                     <View style={{ flex: 1 }}>
-                      <Text style={styles.sellerName}>Nour Ben Salah (Profil Vérifié)</Text>
-                      <Text style={styles.sellerLoc}>Contact : {selectedProduct.contact_info}</Text>
+                      <Text style={[styles.sellerName, { color: theme.colors.textPrimary }]}>Nour Ben Salah (Profil Vérifié)</Text>
+                      <Text style={[styles.sellerLoc, { color: theme.colors.textSecondary }]}>Contact : {selectedProduct.contact_info}</Text>
                     </View>
                   </View>
                 </View>

@@ -9,6 +9,7 @@ import dayjs from 'dayjs';
 
 import { StarField } from '@/src/components/ui';
 import { useDb } from '@/src/hooks/use-db';
+import { useTheme } from '@/src/hooks/use-theme';
 import { dbService, WalletTransaction } from '@/src/services/db-service';
 
 type FilterType = 'all' | 'income' | 'expense';
@@ -17,6 +18,7 @@ export function TransactionsScreen() {
   const router = useRouter();
   const isFocused = useIsFocused();
   const { userId, isReady } = useDb();
+  const theme = useTheme();
   const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<FilterType>('all');
@@ -49,8 +51,8 @@ export function TransactionsScreen() {
   const renderEmptyState = () => (
     <View style={styles.emptyState}>
       <Ionicons name="receipt-outline" size={64} color="#7891B260" />
-      <Text style={styles.emptyTitle}>No Transactions Yet</Text>
-      <Text style={styles.emptySubtitle}>Your transaction history will appear here</Text>
+      <Text style={[styles.emptyTitle, { color: theme.colors.textPrimary }]}>No Transactions Yet</Text>
+      <Text style={[styles.emptySubtitle, { color: theme.colors.textSecondary }]}>Your transaction history will appear here</Text>
     </View>
   );
 
@@ -63,28 +65,28 @@ export function TransactionsScreen() {
   );
 
   return (
-    <SafeAreaView edges={['top']} style={styles.safeArea}>
+    <SafeAreaView edges={['top']} style={[styles.safeArea, { backgroundColor: theme.colors.background }]}>
       <StatusBar style="light" />
       <StarField />
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
           <Pressable onPress={() => router.back()}>
-            <Ionicons name="arrow-back" size={24} color="#F7FAFF" />
+            <Ionicons name="arrow-back" size={24} color={theme.colors.textPrimary} />
           </Pressable>
-          <Text style={styles.title}>Transactions</Text>
+          <Text style={[styles.title, { color: theme.colors.textPrimary }]}>Transactions</Text>
           <View style={{ width: 24 }} />
         </View>
-        <Text style={styles.subtitle}>A clear view of every movement.</Text>
+        <Text style={[styles.subtitle, { color: theme.colors.textSecondary }]}>A clear view of every movement.</Text>
 
         {/* Filters */}
         <View style={styles.filterContainer}>
           {(['all', 'income', 'expense'] as FilterType[]).map((f) => (
             <Pressable
               key={f}
-              style={[styles.filterButton, filter === f && styles.filterButtonActive]}
+              style={[styles.filterButton, { backgroundColor: theme.colors.surfaceSubtle, borderColor: theme.colors.border + '20' }, filter === f && { backgroundColor: theme.colors.primary + '22', borderColor: theme.colors.primary }]}
               onPress={() => setFilter(f)}
             >
-              <Text style={[styles.filterText, filter === f && styles.filterTextActive]}>
+              <Text style={[styles.filterText, { color: theme.colors.textSecondary }, filter === f && { color: theme.colors.primary }]}>
                 {f === 'all' ? 'All' : f.charAt(0).toUpperCase() + f.slice(1)}
               </Text>
             </Pressable>
@@ -96,7 +98,7 @@ export function TransactionsScreen() {
         ) : filteredTransactions.length > 0 ? (
           <View style={styles.list}>
             {filteredTransactions.map((tx) => (
-              <View key={tx.id} style={styles.transactionItem}>
+              <View key={tx.id} style={[styles.transactionItem, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border + '33' }]}>
                 <View style={[
                   styles.transactionIconContainer,
                   { backgroundColor: tx.amount < 0 ? '#FF535320' : '#12C97920' }
@@ -108,8 +110,8 @@ export function TransactionsScreen() {
                   />
                 </View>
                 <View style={styles.transactionDetails}>
-                  <Text style={styles.transactionTitle}>{tx.title}</Text>
-                  <Text style={styles.transactionSubtitle}>
+                  <Text style={[styles.transactionTitle, { color: theme.colors.textPrimary }]}>{tx.title}</Text>
+                  <Text style={[styles.transactionSubtitle, { color: theme.colors.textSecondary }]}>
                     {tx.category} • {dayjs(tx.transaction_date).format('DD MMM YYYY')}
                   </Text>
                 </View>

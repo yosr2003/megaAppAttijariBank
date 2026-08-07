@@ -19,6 +19,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { PrimaryButton, StarField } from "@/src/components/ui";
 import { useDb } from "@/src/hooks/use-db";
+import { useTheme } from "@/src/hooks/use-theme";
 import { useFormValidation } from "@/src/hooks/use-form-validation";
 import { dbService, WalletCard } from "@/src/services/db-service";
 import { format, V } from "@/src/utils/form-validation";
@@ -159,7 +160,7 @@ const FlipCard = ({ card, onDelete }: FlipCardProps) => {
             <Ionicons
               name="wifi"
               size={20}
-              color="#F7FAFF"
+              color={theme.colors.textPrimary}
               style={styles.wifiIcon}
             />
           </View>
@@ -243,6 +244,7 @@ export function CardsScreen() {
   const router = useRouter();
   const isFocused = useIsFocused();
   const { userId, isReady } = useDb();
+  const theme = useTheme();
   const { errors, validate, clearError, clearAll } = useFormValidation();
   const [cards, setCards] = useState<WalletCard[]>([]);
   const [loading, setLoading] = useState(true);
@@ -337,7 +339,7 @@ export function CardsScreen() {
   );
 
   return (
-    <SafeAreaView edges={["top"]} style={styles.safeArea}>
+    <SafeAreaView edges={["top"]} style={[styles.safeArea, { backgroundColor: theme.colors.background }]}>
       <StatusBar style="light" />
       <StarField />
       <ScrollView
@@ -348,10 +350,10 @@ export function CardsScreen() {
           <Pressable onPress={() => router.back()}>
             <Ionicons name="arrow-back" size={24} color="#F7FAFF" />
           </Pressable>
-          <Text style={styles.title}>Your Cards</Text>
+          <Text style={[styles.title, { color: theme.colors.textPrimary }]}>Your Cards</Text>
           <View style={{ width: 24 }} />
         </View>
-        <Text style={styles.subtitle}>
+        <Text style={[styles.subtitle, { color: theme.colors.textSecondary }]}>
           Secure payment, designed around you.
         </Text>
 
@@ -391,7 +393,7 @@ export function CardsScreen() {
             <View style={styles.modalHeaderRow}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                 <Ionicons name="shield-checkmark-outline" size={20} color="#2F80ED" />
-                <Text style={styles.modalTitle}>Add New Card</Text>
+                <Text style={[styles.modalTitle, { color: theme.colors.textPrimary }]}>Add New Card</Text>
               </View>
               <Pressable onPress={() => setIsAddModalVisible(false)}>
                 <Ionicons name="close-outline" size={24} color="#F7FAFF" />
@@ -402,7 +404,7 @@ export function CardsScreen() {
               showsVerticalScrollIndicator={false}
             >
               <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Card Number</Text>
+                <Text style={[styles.inputLabel, { color: theme.colors.textSecondary }]}>Card Number</Text>
                 <View style={[
                   styles.inputContainer,
                   focusedField === 'cardNumber' && styles.inputContainerFocused,
