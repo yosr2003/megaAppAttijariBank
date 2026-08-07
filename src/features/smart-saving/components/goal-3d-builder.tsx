@@ -83,11 +83,19 @@ export function Goal3DBuilder({
   }));
 
   const fillPercentStyle = useAnimatedStyle(() => ({
-    height: `${fillVal.value * 100}%`
+    height: `${fillVal.value * 100}%`,
+    transform: [
+      { rotate: `${interpolate(bounceVal.value, [0, 1], [-1.2, 1.2])}deg` }
+    ]
   }));
 
   // Render cartoonish illustrations using styled vector containers
   const renderIllustration = () => {
+    // Determine milestone activation states
+    const hasWheels = progress > 0.15;
+    const hasWindshield = progress > 0.65;
+    const hasDetails = progress > 0.4;
+
     switch (shape) {
       case 'car':
         return (
@@ -95,20 +103,25 @@ export function Goal3DBuilder({
             {/* Cartoon Car Frame */}
             <View style={styles.carBodyOutline}>
               {/* Windshield / Roof */}
-              <View style={styles.carWindshield} />
+              <View 
+                style={[
+                  styles.carWindshield, 
+                  { opacity: hasWindshield ? 1 : 0.25, borderColor: hasWindshield ? '#1E293B' : '#64748B' }
+                ]} 
+              />
               
               {/* Car Main Cabin */}
               <View style={styles.carCabinMain}>
                 {/* Colored fill overlay reflecting progress */}
                 <Animated.View style={[styles.carFillColor, fillPercentStyle]} />
                 {/* Cute cartoon headlights */}
-                <View style={[styles.headlight, { left: 8 }]} />
-                <View style={[styles.headlight, { right: 8 }]} />
+                <View style={[styles.headlight, { left: 8, opacity: hasDetails ? 1 : 0.3 }]} />
+                <View style={[styles.headlight, { right: 8, opacity: hasDetails ? 1 : 0.3 }]} />
               </View>
             </View>
 
             {/* Wheels */}
-            <View style={styles.wheelsRow}>
+            <View style={[styles.wheelsRow, { opacity: hasWheels ? 1 : 0.3 }]}>
               <View style={styles.wheelOuter}>
                 <View style={styles.wheelInner} />
               </View>
@@ -127,7 +140,7 @@ export function Goal3DBuilder({
             {/* Cozy Cottage */}
             <View style={styles.houseFrame}>
               {/* Red Sloped Roof */}
-              <View style={styles.houseRoof} />
+              <View style={[styles.houseRoof, { borderBottomColor: hasWindshield ? '#F43F5E' : '#94A3B8', opacity: hasWindshield ? 1 : 0.35 }]} />
               
               {/* Main House Wall */}
               <View style={styles.houseWall}>
@@ -135,9 +148,9 @@ export function Goal3DBuilder({
                 <Animated.View style={[styles.houseFillColor, fillPercentStyle]} />
                 
                 {/* Center Door */}
-                <View style={styles.houseDoor} />
+                <View style={[styles.houseDoor, { opacity: hasDetails ? 1 : 0.25 }]} />
                 {/* Window */}
-                <View style={styles.houseWindow} />
+                <View style={[styles.houseWindow, { opacity: hasDetails ? 1 : 0.25 }]} />
               </View>
             </View>
             <View style={styles.groundShadow} />
@@ -155,7 +168,9 @@ export function Goal3DBuilder({
                 
                 {/* Inner screen content */}
                 <View style={styles.phoneInnerNotch} />
-                <Ionicons name="sparkles" size={24} color="#FFF" style={{ marginTop: 20 }} />
+                {progress > 0.75 && (
+                  <Ionicons name="sparkles" size={24} color="#FFF" style={{ marginTop: 20 }} />
+                )}
               </View>
             </View>
             <View style={styles.groundShadow} />
@@ -169,13 +184,13 @@ export function Goal3DBuilder({
             {/* Travel Jet */}
             <View style={styles.planeFrame}>
               {/* Wings */}
-              <View style={styles.planeWings} />
+              <View style={[styles.planeWings, { opacity: hasWheels ? 1 : 0.3 }]} />
               {/* Main Fuselage */}
               <View style={styles.planeFuselage}>
                 {/* Progress fill */}
                 <Animated.View style={[styles.planeFillColor, fillPercentStyle]} />
                 {/* Cockpit Window */}
-                <View style={styles.planeCockpit} />
+                <View style={[styles.planeCockpit, { opacity: hasWindshield ? 1 : 0.25 }]} />
               </View>
             </View>
             <View style={styles.groundShadow} />
@@ -191,9 +206,20 @@ export function Goal3DBuilder({
           <ActivityIndicator color={theme.colors.primary} size="large" />
         </View>
       ) : (
-        <Animated.View style={[styles.illustrationWrapper, floatStyle]}>
-          {renderIllustration()}
-        </Animated.View>
+        <View style={{ position: 'relative', width: 220, alignItems: 'center' }}>
+          {/* Floating Sparkle Stars */}
+          {progress > 0.5 && (
+            <>
+              <Text style={{ position: 'absolute', top: 20, left: 10, fontSize: 18, color: '#ECC863', zIndex: 10 }}>⭐</Text>
+              <Text style={{ position: 'absolute', top: 50, right: 15, fontSize: 14, color: '#ECC863', zIndex: 10 }}>✨</Text>
+              <Text style={{ position: 'absolute', bottom: 60, left: 20, fontSize: 12, color: '#ECC863', zIndex: 10 }}>⭐</Text>
+            </>
+          )}
+
+          <Animated.View style={[styles.illustrationWrapper, floatStyle]}>
+            {renderIllustration()}
+          </Animated.View>
+        </View>
       )}
 
       {/* Progress pill overlay */}
