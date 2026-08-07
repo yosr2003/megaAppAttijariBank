@@ -131,6 +131,61 @@ function CoinBurst({
   );
 }
 
+// Helper to colorize specific parts of the 3D model (e.g. wheels, windows, roof) to look like real objects
+const getBlockColors = (shape: string, slot: { x: number; y: number; layer: number }, blueprint: GoalBlueprint) => {
+  const defaults = {
+    top: blueprint.blockTop,
+    front: blueprint.blockFront,
+    side: blueprint.blockSide,
+  };
+
+  if (shape === 'car') {
+    // Wheels at layer 0
+    if (slot.layer === 0) {
+      return { top: '#2D3748', front: '#1A202C', side: '#10141D' };
+    }
+    // Cabin windshields at layer 2
+    if (slot.layer === 2) {
+      return { top: '#A5F3FC', front: '#22D3EE', side: '#0891B2' };
+    }
+    // Body of the car
+    return { top: '#FFD93D', front: '#FFC244', side: '#D99E10' };
+  }
+
+  if (shape === 'house') {
+    // Roof at layer 2
+    if (slot.layer === 2) {
+      return { top: '#FDA4AF', front: '#F43F5E', side: '#BE123C' };
+    }
+    // Windows/Doors
+    if (slot.layer === 1 && slot.x === 1) {
+      return { top: '#A5F3FC', front: '#22D3EE', side: '#0891B2' };
+    }
+    // Walls
+    return { top: '#F8FAFC', front: '#E2E8F0', side: '#94A3B8' };
+  }
+
+  if (shape === 'phone') {
+    // Glowing Screen
+    if (slot.layer >= 1 && slot.layer <= 4) {
+      return { top: '#93C5FD', front: '#3B82F6', side: '#1D4ED8' };
+    }
+    // Titanium borders
+    return { top: '#475569', front: '#334155', side: '#1E293B' };
+  }
+
+  if (shape === 'plane') {
+    // Wingtips & tail
+    if (slot.layer === 2 || (slot.layer === 0 && (slot.x === 0 || slot.x === 3))) {
+      return { top: '#FDA4AF', front: '#F43F5E', side: '#BE123C' };
+    }
+    // Main fuselage body
+    return { top: '#F8FAFC', front: '#E2E8F0', side: '#94A3B8' };
+  }
+
+  return defaults;
+};
+
 // ─── One voxel block with cartoon styling ────────────────────────────────────
 function VoxelBlock({
   index,
@@ -151,8 +206,9 @@ function VoxelBlock({
 }) {
   const threshold = (index + 1) / blockCount;
   const jiggle = useSharedValue(0);
-  // Use a shared value (safe inside worklets) to track first appearance
   const hasAppeared = useSharedValue(0);
+
+  const blockColors = getBlockColors(blueprint.shape, slot, blueprint);
 
   const blockStyle = useAnimatedStyle(() => {
     const appear = interpolate(progressValue.value, [threshold - 0.1, threshold], [0, 1], 'clamp');
@@ -193,7 +249,7 @@ function VoxelBlock({
         style={[
           styles.blockTop,
           {
-            backgroundColor: blueprint.blockTop,
+            backgroundColor: blockColors.top,
             width: blockSize,
             height: blockSize * 0.38,
             borderTopLeftRadius: 5,
@@ -208,7 +264,7 @@ function VoxelBlock({
         style={[
           styles.blockFront,
           {
-            backgroundColor: blueprint.blockFront,
+            backgroundColor: blockColors.front,
             width: blockSize,
             height: blockSize * 0.62,
             borderBottomLeftRadius: 5,
@@ -229,7 +285,7 @@ function VoxelBlock({
         style={[
           styles.blockSide,
           {
-            backgroundColor: blueprint.blockSide,
+            backgroundColor: blockColors.side,
             width: blockSize * 0.36,
             height: blockSize * 0.62,
             borderBottomRightRadius: 5,
