@@ -324,7 +324,7 @@ export function P2PMarketplaceScreen() {
     setIsChatModalVisible(true);
   };
 
-  const runAIBargaining = () => {
+    const runAIBargaining = () => {
     const budget = parseFloat(aiBargainBudget);
     if (isNaN(budget) || budget <= 0 || !chatProduct) {
       Alert.alert("Erreur", "Veuillez entrer un budget max de négociation valide.");
@@ -341,6 +341,60 @@ export function P2PMarketplaceScreen() {
       { sender: 'seller', text: `Bonjour ! Oui, le produit "${chatProduct.title}" est toujours disponible. Vous souhaitez le voir ?`, time: '11:00', type: 'text' }
     ]);
 
+    const ratio = budget / chatProduct.price;
+
+    // SCENARIO 1: Lowballer (< 50%) -> Rejection in Tunisian
+    if (ratio < 0.5) {
+      setTimeout(() => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        setChatHistory(prev => [...prev, {
+          sender: 'user',
+          text: `🤖 (IA) Salam khouya, n7eb nechri el ${chatProduct.title}. Te9bel fih ${budget.toFixed(3)} TND cash taw?`,
+          time: '11:15',
+          type: 'text'
+        }]);
+      }, 1200);
+
+      setTimeout(() => {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        setChatHistory(prev => [...prev, {
+          sender: 'seller',
+          text: `Laa khouya y3aychek! ${budget.toFixed(3)} TND chwaya barcha 3lih, d'origine w ndhif barcha raw. Zid chwaya soum khalli netfehmou!`,
+          time: '11:16',
+          type: 'text'
+        }]);
+        setIsBargaining(false);
+      }, 2800);
+      return;
+    }
+
+    // SCENARIO 2: Instant Accept (> 85%) -> Immediate accept in Tunisian
+    if (ratio >= 0.85) {
+      setTimeout(() => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        setChatHistory(prev => [...prev, {
+          sender: 'user',
+          text: `🤖 (IA) Salam khouya, n7eb nechri el ${chatProduct.title}. Te9bel fih ${budget.toFixed(3)} TND cash taw?`,
+          time: '11:15',
+          type: 'text'
+        }]);
+      }, 1200);
+
+      setTimeout(() => {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        setNegotiatedPrice(budget);
+        setChatHistory(prev => [...prev, {
+          sender: 'seller',
+          text: `Mar7ba khouya. Soum yse3edni, behi yalah mabrouk 3lik b ${budget.toFixed(3)} TND! A3mel paiement secure taw net9ablu.`,
+          time: '11:16',
+          type: 'text'
+        }]);
+        setIsBargaining(false);
+      }, 2800);
+      return;
+    }
+
+    // SCENARIO 3: Counter-Offer Haggling (50% - 85%) -> 4-step bargaining conversation
     // Step 1: User IA initiates offer
     setTimeout(() => {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -352,7 +406,7 @@ export function P2PMarketplaceScreen() {
       }]);
     }, 1200);
 
-    // Step 2: Seller declines or makes a counter-offer
+    // Step 2: Seller declines and makes a counter-offer
     setTimeout(() => {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       const counterPrice = (chatProduct.price * 0.92).toFixed(3);
