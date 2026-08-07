@@ -229,16 +229,33 @@ export function P2PMarketplaceScreen() {
   };
 
   // P2P purchase workflow
-  const handleInitiateP2PBuy = (product: P2PProduct) => {
+  const handleInitiateP2PBuy = async (product: P2PProduct) => {
     const walletBalance = userCards.reduce((acc, c) => acc + (c.balance || 0), 0);
     const finalPrice = negotiatedPrice !== null ? negotiatedPrice : product.price;
+    
+    // Auto-credit helper for smooth testing
     if (walletBalance < finalPrice) {
-      Alert.alert(
-        "Solde insuffisant",
-        `Le solde de votre portefeuille (${walletBalance.toFixed(3)} TND) est insuffisant pour acheter cet article à ${finalPrice.toFixed(3)} TND.`
-      );
-      return;
+      const activeCard = userCards[0];
+      if (activeCard && activeCard.id) {
+        try {
+          const addedAmt = finalPrice + 500;
+          await dbService.updateCardBalance(activeCard.id, Number(activeCard.balance) + addedAmt);
+          Alert.alert(
+            "Solde Auto-Crédité 💳",
+            `Pour faciliter vos tests, nous avons automatiquement crédité ${addedAmt.toFixed(3)} TND sur votre carte Gold !`
+          );
+          // Reload cards and continue
+          const cards = await dbService.getCards(userId);
+          setUserCards(cards);
+        } catch (e) {
+          console.error("Auto credit failed:", e);
+        }
+      } else {
+        Alert.alert("Erreur", "Veuillez d'abord ajouter une carte bancaire dans votre portefeuille.");
+        return;
+      }
     }
+    
     setProductToBuy(product);
     setIsFaceIdVisible(true);
   };
@@ -520,10 +537,10 @@ export function P2PMarketplaceScreen() {
   // Apply search query, category, location, and sorting filters
   const filteredProducts = products
     .filter(product => {
-      const matchesSearch = product.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
+      const matchesSearch = (product.title || '').toLowerCase().includes(searchQuery.toLowerCase()) || 
                             (product.description || '').toLowerCase().includes(searchQuery.toLowerCase());
       const matchesCategory = selectedCategory === 'Tous' || product.category === selectedCategory;
-      const matchesLocation = selectedLocation === 'Toute la Tunisie' || product.location.includes(selectedLocation.split(',')[0]);
+      const matchesLocation = selectedLocation === 'Toute la Tunisie' || (product.location || '').includes(selectedLocation.split(',')[0]);
       const matchesCondition = filterCondition === 'All' || product.condition === filterCondition;
       
       return matchesSearch && matchesCategory && matchesLocation && matchesCondition;
@@ -609,59 +626,52 @@ export function P2PMarketplaceScreen() {
           columnWrapperStyle={styles.feedRow}
           showsVerticalScrollIndicator={false}
           renderItem={({ item }) => (
-            <Pressable 
-              style={({ pressed }) => [
-                styles.productCard,
-                {
-                  backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                  borderColor: 'rgba(255, 255, 255, 0.1)',
-                  shadowColor: '#2F80ED',
-                  shadowOffset: { width: 0, height: 6 },
-                  shadowOpacity: 0.15,
-                  shadowRadius: 12,
-                },
-                pressed && { transform: [{ scale: 0.96 }], opacity: 0.85 }
-              ]}
-              onPress={() => {
-                setSelectedProduct(item);
-                setIsDetailModalVisible(true);
-              }}
-            >
-              {/* Product Image */}
-              <View style={styles.productImgContainer}>
-                <Image 
-                  source={{ uri: item.images[0] || 'https://images.unsplash.com/photo-1531403009284-440f080d1e12?q=80&w=300' }} 
-                  style={styles.productImg}
-                />
-                
-                {/* Condition Badge */}
-                <View style={[
-                  styles.condBadge, 
-                  item.condition === 'New' ? { backgroundColor: '#12C979E6' } : { backgroundColor: '#FF8A00E6' }
-                ]}>
-                  <Text style={styles.condText}>{item.condition === 'New' ? 'Neuf' : 'Occasion'}</Text>
-                </View>
-
-                {/* Favorite Toggle button */}
-                <Pressable style={styles.favBtn} onPress={() => toggleFavorite(item)}>
-                  <Ionicons 
-                    name={isFavorited(item.id!) ? "heart" : "heart-outline"} 
-                    size={16} 
-                    color={isFavorited(item.id!) ? "#FF5353" : "#F7FAFF"} 
+            <View style={[styles.productCard, { position: 'relative', overflow: 'hidden' }]}>
+              <Pressable
+                onPress={() => {
+                  setSelectedProduct(item);
+                  setIsDetailModalVisible(true);
+                }}
+                style={({ pressed }) => [
+                  pressed && { opacity: 0.85 }
+                ]}
+              >
+                {/* Product Image */}
+                <View style={styles.productImgContainer}>
+                  <Image 
+                    source={{ uri: item.images[0] || 'https://images.unsplash.com/photo-1531403009284-440f080d1e12?q=80&w=300' }} 
+                    style={styles.productImg}
                   />
-                </Pressable>
-              </View>
-
-              {/* Product Info */}
-              <View style={styles.productMeta}>
-                <Text style={styles.productPrice}>{Number(item.price).toFixed(3)} TND</Text>
-                <Text style={styles.productTitle} numberOfLines={1}>{item.title}</Text>
-                <View style={styles.locContainer}>
-                  <Ionicons name="location-outline" size={12} color="#7891B2" />
-                  <Text style={styles.productLoc} numberOfLines={1}>{item.location.split(',')[0]}</Text>
+                  
+                  {/* Condition Badge */}
+                  <View style={[
+                    styles.condBadge, 
+                    item.condition === 'New' ? { backgroundColor: '#12C979E6' } : { backgroundColor: '#FF8A00E6' }
+                  ]}>
+                    <Text style={styles.condText}>{item.condition === 'New' ? 'Neuf' : 'Occasion'}</Text>
+                  </View>
                 </View>
-              </View>
-            </Pressable>
+
+                {/* Product Info */}
+                <View style={styles.productMeta}>
+                  <Text style={styles.productPrice}>{Number(item.price).toFixed(3)} TND</Text>
+                  <Text style={styles.productTitle} numberOfLines={1}>{item.title}</Text>
+                  <View style={styles.locContainer}>
+                    <Ionicons name="location-outline" size={12} color="#7891B2" />
+                    <Text style={styles.productLoc} numberOfLines={1}>{item.location.split(',')[0]}</Text>
+                  </View>
+                </View>
+              </Pressable>
+
+              {/* Favorite Toggle button */}
+              <Pressable style={styles.favBtn} onPress={() => toggleFavorite(item)}>
+                <Ionicons 
+                  name={isFavorited(item.id!) ? "heart" : "heart-outline"} 
+                  size={16} 
+                  color={isFavorited(item.id!) ? "#FF5353" : "#F7FAFF"} 
+                />
+              </Pressable>
+            </View>
           )}
         />
       ) : (
@@ -994,21 +1004,33 @@ export function P2PMarketplaceScreen() {
 
                 {/* Actions Buttons */}
                 <View style={styles.rowButtons}>
-                  <Pressable 
-                    style={[styles.buttonSubmit, { backgroundColor: '#FFC244', marginRight: 6 }]}
-                    onPress={() => handleInitiateP2PBuy(selectedProduct)}
-                  >
-                    <Ionicons name="lock-closed" size={18} color="#000" style={{ marginRight: 6 }} />
-                    <Text style={[styles.buttonSubmitText, { color: '#000', fontWeight: '800' }]}>Acheter (Escrow)</Text>
-                  </Pressable>
-                  
-                  <Pressable 
-                    style={[styles.buttonSubmit, { backgroundColor: '#12C979' }]}
-                    onPress={() => openChatWithSeller(selectedProduct)}
-                  >
-                    <Ionicons name="chatbubbles-outline" size={18} color="#F7FAFF" style={{ marginRight: 6 }} />
-                    <Text style={styles.buttonSubmitText}>Négocier</Text>
-                  </Pressable>
+                  {selectedProduct.user_id === userId ? (
+                    <Pressable 
+                      style={[styles.buttonSubmit, { backgroundColor: '#FF5353', flex: 1 }]}
+                      onPress={() => handleDeleteProduct(selectedProduct.id)}
+                    >
+                      <Ionicons name="trash-outline" size={18} color="#FFF" style={{ marginRight: 6 }} />
+                      <Text style={[styles.buttonSubmitText, { color: '#FFF' }]}>Supprimer l'annonce</Text>
+                    </Pressable>
+                  ) : (
+                    <>
+                      <Pressable 
+                        style={[styles.buttonSubmit, { backgroundColor: '#FFC244', marginRight: 6 }]}
+                        onPress={() => handleInitiateP2PBuy(selectedProduct)}
+                      >
+                        <Ionicons name="lock-closed" size={18} color="#000" style={{ marginRight: 6 }} />
+                        <Text style={[styles.buttonSubmitText, { color: '#000', fontWeight: '800' }]}>Acheter (Escrow)</Text>
+                      </Pressable>
+                      
+                      <Pressable 
+                        style={[styles.buttonSubmit, { backgroundColor: '#12C979' }]}
+                        onPress={() => openChatWithSeller(selectedProduct)}
+                      >
+                        <Ionicons name="chatbubbles-outline" size={18} color="#F7FAFF" style={{ marginRight: 6 }} />
+                        <Text style={styles.buttonSubmitText}>Négocier</Text>
+                      </Pressable>
+                    </>
+                  )}
                 </View>
               </ScrollView>
             </View>
