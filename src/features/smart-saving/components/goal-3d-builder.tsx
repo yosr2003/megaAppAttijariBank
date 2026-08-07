@@ -140,46 +140,59 @@ const getBlockColors = (shape: string, slot: { x: number; y: number; layer: numb
   };
 
   if (shape === 'car') {
-    // Wheels at layer 0
-    if (slot.layer === 0) {
+    // Wheels at bottom corners (x=0 or x=3, and y=0 or y=2)
+    if (slot.layer === 0 && (slot.x === 0 || slot.x === 3) && (slot.y === 0 || slot.y === 2)) {
       return { top: '#2D3748', front: '#1A202C', side: '#10141D' };
     }
-    // Cabin windshields at layer 2
+    // Cabin windshields/windows (layer 2)
     if (slot.layer === 2) {
       return { top: '#A5F3FC', front: '#22D3EE', side: '#0891B2' };
     }
-    // Body of the car
+    // Cabin roof (layer 3)
+    if (slot.layer === 3) {
+      return { top: '#FF6B6B', front: '#EF4444', side: '#C92A2A' };
+    }
+    // Body of the car (layer 1 and parts of layer 0)
     return { top: '#FFD93D', front: '#FFC244', side: '#D99E10' };
   }
 
   if (shape === 'house') {
-    // Roof at layer 2
+    // Roof ridge/chimney (layer 3)
+    if (slot.layer === 3) {
+      if (slot.x === 2 && slot.y === 2) {
+        // Chimney (Red Brick)
+        return { top: '#FCA5A5', front: '#EF4444', side: '#B91C1C' };
+      }
+      // Roof ridge (Rosy Red tiles)
+      return { top: '#FDA4AF', front: '#F43F5E', side: '#BE123C' };
+    }
+    // Ceiling/Roof Overhang (layer 2)
     if (slot.layer === 2) {
       return { top: '#FDA4AF', front: '#F43F5E', side: '#BE123C' };
     }
-    // Windows/Doors
-    if (slot.layer === 1 && slot.x === 1) {
-      return { top: '#A5F3FC', front: '#22D3EE', side: '#0891B2' };
-    }
-    // Walls
+    // Main walls
     return { top: '#F8FAFC', front: '#E2E8F0', side: '#94A3B8' };
   }
 
   if (shape === 'phone') {
-    // Glowing Screen
-    if (slot.layer >= 1 && slot.layer <= 4) {
+    // Screen blocks in the center
+    if (slot.layer === 1 && slot.x === 1 && slot.y >= 1 && slot.y <= 3) {
       return { top: '#93C5FD', front: '#3B82F6', side: '#1D4ED8' };
     }
-    // Titanium borders
+    // Matte Titanium frame
     return { top: '#475569', front: '#334155', side: '#1E293B' };
   }
 
   if (shape === 'plane') {
-    // Wingtips & tail
-    if (slot.layer === 2 || (slot.layer === 0 && (slot.x === 0 || slot.x === 3))) {
+    // Wingtips (extreme left x=0 and right x=6 on layer 0) and tail fin (layer 2/3)
+    if (slot.layer >= 2 || (slot.layer === 0 && (slot.x === 0 || slot.x === 6))) {
       return { top: '#FDA4AF', front: '#F43F5E', side: '#BE123C' };
     }
-    // Main fuselage body
+    // Cockpit windows (layer 2 center)
+    if (slot.layer === 2 && slot.x === 3 && slot.y === 1) {
+      return { top: '#A5F3FC', front: '#22D3EE', side: '#0891B2' };
+    }
+    // Main fuselage body (white)
     return { top: '#F8FAFC', front: '#E2E8F0', side: '#94A3B8' };
   }
 
