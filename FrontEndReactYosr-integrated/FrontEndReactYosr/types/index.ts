@@ -3,7 +3,7 @@ import type { Ionicons } from "@expo/vector-icons";
 export type CategoryKey =
   | "all"
   | "concerts"
-  | "festivals"
+  | "festival"
   | "sports"
   | "cinema"
   | "conferences"
@@ -42,6 +42,7 @@ export interface EventItem {
   availabilityPercent: number;
   ticketsLeft: number;
   tags: string[];
+    description?: string; 
 }
 
 export interface ServiceItem {
