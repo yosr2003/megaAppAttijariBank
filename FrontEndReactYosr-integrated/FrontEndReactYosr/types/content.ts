@@ -1,3 +1,5 @@
+import { ImageURISource } from "react-native";
+
 export interface BlogAuthor {
   name: string;
   handle?: string;
@@ -8,7 +10,13 @@ export interface BlogAuthor {
 
 export interface BlogComment {
   id: string;
-  author: BlogAuthor;
+
+  author: {
+    name: string;
+    role: string;
+    avatar: ImageURISource;
+  };
+
   text: string;
   time: string;
 }

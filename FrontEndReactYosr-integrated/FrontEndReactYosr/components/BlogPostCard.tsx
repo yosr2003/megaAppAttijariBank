@@ -16,7 +16,7 @@ import { Colors } from "../constants/home/Colors";
 import { Radius, Spacing } from "../constants/home/Layout";
 import { Typography } from "../constants/home/Typography";
 
-import { getProfileImageUrl } from "../services/authService";
+import { getProfileImageUrl } from "../services/postService";
 
 interface PostAuthor {
   id: number;
@@ -264,10 +264,6 @@ const toggleLike = async () => {
 
       </View>
 
-      {/* TITRE */}
-      <Text style={styles.title}>
-        {post.titre}
-      </Text>
 
       {/* CONTENU */}
       <Text style={styles.content}>

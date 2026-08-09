@@ -161,3 +161,45 @@ export const togglePostLike = async (
 
   return response.data;
 };
+export const addComment = async (
+  postId: number,
+  contenu: string,
+  userId: number
+) => {
+  const token = await getToken();
+
+  const response = await api.post(
+    `/comments/post/${postId}`,
+    {
+      contenu,
+      userId,
+    },
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+    }
+  );
+
+  return response.data;
+};
+
+export const getProfileImageUrl = async (
+  filename: string | null | undefined
+) => {
+  if (!filename) {
+    return null;
+  }
+
+  const token = await getToken();
+
+  return {
+    uri: api.getUri({
+      url: `/auth/profile-image/${filename}`,
+    }),
+ headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  };
+};

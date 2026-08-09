@@ -34,24 +34,5 @@ export const signup = async (
 
 
 
-export const getProfileImageUrl = async (
-  filename: string | null | undefined
-) => {
-  if (!filename) {
-    return null;
-  }
 
-  const token = await getToken();
-
-  return {
-    uri: api.getUri({
-      url: `/auth/profile-image/${filename}`,
-    }),
-    headers: token
-      ? {
-          Authorization: `Bearer ${token}`,
-        }
-      : {},
-  };
-};
 

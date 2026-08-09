@@ -25,7 +25,7 @@ import { Layout, Radius, Spacing } from "../../../constants/home/Layout";
 import { Typography } from "../../../constants/home/Typography";
 
 import { getUser } from "../../../utils/storage";
-import { getProfileImageUrl } from "../../../services/authService";
+import { getProfileImageUrl } from "../../../services/postService";
 import { getAllPosts, createPost ,getPostById} from "../../../services/postService";
 
 const TRENDING = [

@@ -132,5 +132,37 @@ private final FileStorageService fileStorageService;
     }
 
 
+    @GetMapping("/profile/image/{filename:.+}")
+    public ResponseEntity<Resource> getProfileImage(
+            @PathVariable String filename
+    ) {
+
+        Resource resource = fileStorageService.loadImage(filename);
+
+        String contentType = "application/octet-stream";
+
+        try {
+            contentType = MediaTypeFactory
+                    .getMediaType(resource)
+                    .orElse(MediaType.APPLICATION_OCTET_STREAM)
+                    .toString();
+
+        } catch (Exception e) {
+            System.out.println(
+                    "Impossible de déterminer le type de l'image : "
+                            + e.getMessage()
+            );
+        }
+
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType(contentType))
+                .header(
+                        HttpHeaders.CONTENT_DISPOSITION,
+                        "inline; filename=\"" + filename + "\""
+                )
+                .body(resource);
+    }
+
+
 
 }

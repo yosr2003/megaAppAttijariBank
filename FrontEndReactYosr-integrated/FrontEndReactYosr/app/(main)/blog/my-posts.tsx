@@ -25,7 +25,7 @@ import {
 import { Typography } from "../../../constants/home/Typography";
 
 import { getUser } from "../../../utils/storage";
-import { getProfileImageUrl } from "../../../services/authService";
+import { getProfileImageUrl } from "../../../services/postService";
 import { getPostsByAuthor } from "../../../services/postService";
 
 const LOGO = require("../../../assets/images/logoSuperTounsi.jpg");

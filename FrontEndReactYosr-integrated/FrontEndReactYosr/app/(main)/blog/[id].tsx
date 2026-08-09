@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from "react";
+
 import {
   ActivityIndicator,
   Image,
+  ImageURISource,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -16,12 +18,13 @@ import { router, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 
 import { getUser } from "../../../utils/storage";
-import { getProfileImageUrl } from "../../../services/authService";
+import { getProfileImageUrl } from "../../../services/postService";
 
 import {
   getPostById,
   getPostImageUrl,
-    togglePostLike
+    togglePostLike,
+     addComment
 } from "../../../services/postService";
 
 import { BlogComment } from "../../../types/content";
@@ -109,8 +112,14 @@ export default function BlogPostScreen() {
      IMAGE DU POST
   ============================================================ */
 
-  const [postImage, setPostImage] = useState<any>(null);
-const [authorAvatar, setAuthorAvatar] = useState<any>(null);
+const [postImage, setPostImage] =
+  useState<ImageURISource | null>(null);
+
+const [authorAvatar, setAuthorAvatar] =
+  useState<ImageURISource | null>(null);
+
+const [currentUserAvatar, setCurrentUserAvatar] =
+  useState<ImageURISource | null>(null);
   /* ============================================================
      COMMENTS
      Maintenant récupérés depuis le backend
@@ -137,8 +146,6 @@ const [authorAvatar, setAuthorAvatar] = useState<any>(null);
   const [currentUser, setCurrentUser] =
     useState<CurrentUser | null>(null);
 
-  const [currentUserAvatar, setCurrentUserAvatar] =
-    useState<any>(null);
 
   /* ============================================================
      CHARGER LE POST + DETAILS
@@ -189,6 +196,32 @@ const [authorAvatar, setAuthorAvatar] = useState<any>(null);
       );
 
       setPost(data);
+    if (data.author?.profileImage) {
+  try {
+    const imageResult = await getProfileImageUrl(
+      data.author.profileImage
+    );
+
+    console.log("POST AUTHOR AVATAR :", imageResult);
+
+    // ✅ sécurité anti-null
+    if (imageResult && imageResult.uri) {
+      setAuthorAvatar(imageResult);
+    } else {
+      setAuthorAvatar(null);
+    }
+
+  } catch (error) {
+    console.error(
+      "Erreur chargement avatar auteur du post :",
+      error
+    );
+
+    setAuthorAvatar(null);
+  }
+} else {
+  setAuthorAvatar(null);
+}
       if (data.image) {
         const image = await getPostImageUrl(data.image);
 
@@ -211,31 +244,57 @@ const [authorAvatar, setAuthorAvatar] = useState<any>(null);
          COMMENTS
       ====================================================== */
 
-      const apiComments: BlogComment[] =
-        (data.comments ?? []).map((comment) => ({
-          id: comment.id.toString(),
 
-          author: {
-            name:
-              `${comment.authorFirstName} ${comment.authorLastName}`,
+const apiComments: BlogComment[] = await Promise.all(
+  (data.comments ?? []).map(async (comment) => {
+let avatar: ImageURISource = {
+  uri: "https://i.pravatar.cc/150?img=68",
+};
 
-            role:
-              comment.authorRole ?? "Membre",
+if (comment.authorProfileImage) {
+  try {
+    const imageResult = await getProfileImageUrl(
+      comment.authorProfileImage
+    );
 
-            avatar:
-              comment.authorProfileImage
-                ? comment.authorProfileImage
-                : "https://i.pravatar.cc/150?img=68",
-          },
+    // ✅ vérification anti-null
+    if (imageResult && imageResult.uri) {
+      avatar = imageResult as ImageURISource;
+    }
 
-          text: comment.contenu,
+  } catch (error) {
+    console.error(
+      "Erreur chargement avatar commentaire :",
+      error
+    );
+  }
+}
 
-          time: formatCommentDate(
-            comment.dateCommentaire
-          ),
-        }));
+    return {
+      id: comment.id.toString(),
 
-      setComments(apiComments);
+      author: {
+        name: `${comment.authorFirstName} ${comment.authorLastName}`,
+
+        role: comment.authorRole ?? "Membre",
+
+        // IMPORTANT :
+        // on garde uri + headers
+        avatar,
+      },
+
+      text: comment.contenu,
+
+      time: formatCommentDate(
+        comment.dateCommentaire
+      ),
+    };
+  })
+);
+
+setComments(apiComments);
+
+
 
     } catch (error) {
       console.error(
@@ -299,39 +358,126 @@ const [authorAvatar, setAuthorAvatar] = useState<any>(null);
      n'aura pas créé POST /comments.
   ============================================================ */
 
-  const handleSend = () => {
-    if (!draft.trim()) {
-      return;
+const [sendingComment, setSendingComment] =
+  useState(false);
+
+const handleSend = async () => {
+
+  const contenu = draft.trim();
+
+  if (!contenu) {
+    return;
+  }
+
+  if (!post?.id) {
+    console.error(
+      "Impossible d'ajouter le commentaire : post manquant"
+    );
+    return;
+  }
+
+  if (!currentUser?.id) {
+    console.error(
+      "Impossible d'ajouter le commentaire : utilisateur non connecté"
+    );
+    return;
+  }
+
+  if (sendingComment) {
+    return;
+  }
+
+  try {
+
+    setSendingComment(true);
+
+    const response = await addComment(
+      post.id,
+      contenu,
+      currentUser.id
+    );
+
+    console.log(
+      "COMMENT CREATED :",
+      response
+    );
+
+    // =========================================
+    // CHARGER L'IMAGE DE L'AUTEUR
+    // =========================================
+
+let commentAvatar: ImageURISource = {
+  uri: "https://i.pravatar.cc/150?img=68",
+};
+
+if (response.authorProfileImage) {
+  try {
+    const image = await getProfileImageUrl(
+      response.authorProfileImage
+    );
+
+    if (image) {
+      commentAvatar = image;
     }
+  } catch (error) {
+    console.error(
+      "Erreur chargement avatar nouveau commentaire :",
+      error
+    );
+  }
+}
+
+const newComment: BlogComment = {
+  id: response.id.toString(),
+
+  author: {
+    name: `${response.authorFirstName} ${response.authorLastName}`,
+
+    role:
+      response.authorRole ??
+      currentUser.role ??
+      currentUser.userType ??
+      "Membre",
+
+    avatar: commentAvatar,
+  },
+
+  text: response.contenu,
+
+  time: formatCommentDate(
+    response.dateCommentaire
+  ),
+};
+
+
+    // =========================================
+    // AJOUTER À LA LISTE
+    // =========================================
 
     setComments((prev) => [
       ...prev,
-      {
-        id: `local-${Date.now()}`,
-
-        author: {
-          name: currentUser
-            ? `${currentUser.firstName} ${currentUser.lastName}`
-            : "Vous",
-
-          role:
-            currentUser?.role ??
-            currentUser?.userType ??
-            "Membre",
-
-          avatar:
-            currentUserAvatar?.uri ??
-            "https://i.pravatar.cc/150?img=68",
-        },
-
-        text: draft.trim(),
-
-        time: "à l'instant",
-      },
+      newComment,
     ]);
 
     setDraft("");
-  };
+
+  } catch (error: any) {
+
+    console.error(
+      "Erreur ajout commentaire :",
+      error
+    );
+
+    console.error(
+      "DETAIL ERROR :",
+      error?.response?.data
+    );
+
+  } finally {
+
+    setSendingComment(false);
+  }
+};
 
   /* ============================================================
      LIKE
@@ -569,13 +715,7 @@ const toggleLike = async () => {
 
           </View>
 
-          {/* ==================================================
-              TITRE
-          ================================================== */}
-
-          <Text style={styles.postTitle}>
-            {post.titre}
-          </Text>
+  
 
           {/* ==================================================
               CONTENU
@@ -677,14 +817,17 @@ const toggleLike = async () => {
               style={styles.commentRow}
             >
 
-              <Image
-                source={{
-                  uri:
-                    comment.author.avatar ||
-                    "https://i.pravatar.cc/150?img=68",
-                }}
-                style={styles.commentAvatar}
-              />
+    
+        <Image
+          source={
+            comment.author.avatar || {
+              uri: "https://i.pravatar.cc/150?img=68",
+            }
+          }
+          style={styles.commentAvatar}
+        />
+
+
 
               <View style={styles.commentBubble}>
 
@@ -730,17 +873,28 @@ const toggleLike = async () => {
             onChangeText={setDraft}
           />
 
-          <TouchableOpacity
-            style={styles.sendBtn}
-            onPress={handleSend}
-            activeOpacity={0.8}
-          >
-            <Ionicons
-              name="send"
-              size={17}
-              color={Colors.white}
-            />
-          </TouchableOpacity>
+      <TouchableOpacity
+  style={[
+    styles.sendBtn,
+    sendingComment && { opacity: 0.5 },
+  ]}
+  onPress={handleSend}
+  activeOpacity={0.8}
+  disabled={sendingComment}
+>
+  {sendingComment ? (
+    <ActivityIndicator
+      size="small"
+      color={Colors.white}
+    />
+  ) : (
+    <Ionicons
+      name="send"
+      size={17}
+      color={Colors.white}
+    />
+  )}
+</TouchableOpacity>
 
         </View>
 
