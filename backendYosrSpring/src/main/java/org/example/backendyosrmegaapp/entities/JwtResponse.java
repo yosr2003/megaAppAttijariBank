@@ -29,6 +29,7 @@ public class JwtResponse {
 
 
     private String role;
+    private String profileImage;
 
 
 
@@ -38,7 +39,8 @@ public class JwtResponse {
             String firstName,
             String lastName,
             String email,
-            String role
+            String role,
+            String profileImage
     ){
 
         this.token = token;
@@ -48,7 +50,9 @@ public class JwtResponse {
         this.email = email;
         this.role = role;
         this.type = "Bearer";
+        this.profileImage=profileImage;
 
     }
+
 
 }

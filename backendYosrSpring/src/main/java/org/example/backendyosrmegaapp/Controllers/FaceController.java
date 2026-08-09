@@ -122,7 +122,8 @@ public class FaceController {
                         user.getFirstName(),
                         user.getLastName(),
                         user.getEmail(),
-                        user.getUserType().name()
+                        user.getUserType().name(),
+                        user.getProfileImage()
                 )
         );
     }

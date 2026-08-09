@@ -130,7 +130,8 @@ public class UserController {
                         userDetails.getFirstName(),
                         userDetails.getLastName(),
                         userDetails.getEmail(),
-                        userDetails.getRole()
+                        userDetails.getRole(),
+                        user.getProfileImage()
                 )
         );
 

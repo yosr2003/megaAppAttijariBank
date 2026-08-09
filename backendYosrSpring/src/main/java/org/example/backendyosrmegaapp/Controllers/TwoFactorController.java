@@ -156,13 +156,12 @@ public class TwoFactorController {
 
                         user.getEmail(),
 
-                        user.getUserType().name()
+                        user.getUserType().name(),
+                        user.getProfileImage()
 
                 )
 
         );
-
-
     }
     @PostMapping("/enable")
     public ResponseEntity<?> enable2FA(

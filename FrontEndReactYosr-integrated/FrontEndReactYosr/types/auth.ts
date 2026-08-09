@@ -13,6 +13,7 @@ export interface LoginResponse {
   lastName?: string;
   email?: string;
   role?: string;
+  profileImage: string | null;
 
 
   // Cas 2FA activé

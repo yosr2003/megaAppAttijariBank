@@ -11,5 +11,6 @@ public class FileStorageConfig {
     public final Path uploadDir =
             Paths.get("uploads/profile");
 
-
+    public final Path postUploadDir =
+            Paths.get("uploads/posts");
 }

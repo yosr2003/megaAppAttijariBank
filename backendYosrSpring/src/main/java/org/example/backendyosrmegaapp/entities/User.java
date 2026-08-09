@@ -1,5 +1,7 @@
 package org.example.backendyosrmegaapp.entities;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.*;
 import org.example.backendyosrmegaapp.Enum.UserType;
@@ -18,6 +20,7 @@ import java.util.List;
 @AllArgsConstructor
 @Builder
 @Inheritance(strategy = InheritanceType.JOINED)
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class User {
 
     @Id
@@ -94,10 +97,9 @@ public class User {
 
 
     private LocalDateTime biometricCreatedAt;
-    @OneToMany(mappedBy = "user",
-            cascade = CascadeType.ALL,
-            fetch = FetchType.LAZY)
-    private List<FaceBiometric> faces;
+
+
+
     @PrePersist
     public void onCreate() {
         createdAt = LocalDateTime.now();
