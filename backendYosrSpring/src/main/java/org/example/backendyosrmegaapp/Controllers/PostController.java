@@ -55,9 +55,10 @@ private final FileStorageService fileStorageService;
 
     @GetMapping("/{id}")
     public PostDetailsResponse getPostById(
-            @PathVariable Long id
+            @PathVariable Long id,
+            @RequestParam Long userId
     ) {
-        return postService.getPostDetails(id);
+        return postService.getPostDetails(id, userId);
     }
 
     // ============================

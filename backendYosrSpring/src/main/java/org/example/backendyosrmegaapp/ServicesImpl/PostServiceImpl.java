@@ -108,9 +108,13 @@ public class PostServiceImpl implements PostService {
 
         postRepository.deleteById(id);
     }
-    @Override
-    public PostDetailsResponse getPostDetails(Long postId) {
 
+
+    @Override
+    public PostDetailsResponse getPostDetails(
+            Long postId,
+            Long userId
+    ) {
         Post post = postRepository.findById(postId)
                 .orElseThrow(() ->
                         new RuntimeException(
@@ -127,25 +131,38 @@ public class PostServiceImpl implements PostService {
         long likeCount =
                 postLikeService.countLikesByPostId(postId);
 
-        var author = post.getAuthor();
+        // Vérifier si l'utilisateur connecté
+        // a liké CE post
+        boolean likedByCurrentUser =
+                postLikeService.isLikedByUser(
+                        postId,
+                        userId
+                );
 
-        PostAuthorResponse authorResponse =
-                PostAuthorResponse.builder()
-                        .id(author.getId())
-                        .firstName(author.getFirstName())
-                        .lastName(author.getLastName())
-                        .profileImage(author.getProfileImage())
-                        .role(
-                                author.getUserType() != null
-                                        ? author.getUserType().toString()
-                                        : "Membre"
-                        )
-                        .userType(
-                                author.getUserType() != null
-                                        ? author.getUserType().toString()
-                                        : null
-                        )
-                        .build();
+        PostAuthorResponse authorResponse = null;
+
+        if (post.getAuthor() != null) {
+
+            var author = post.getAuthor();
+
+            authorResponse =
+                    PostAuthorResponse.builder()
+                            .id(author.getId())
+                            .firstName(author.getFirstName())
+                            .lastName(author.getLastName())
+                            .profileImage(author.getProfileImage())
+                            .role(
+                                    author.getUserType() != null
+                                            ? author.getUserType().toString()
+                                            : "Membre"
+                            )
+                            .userType(
+                                    author.getUserType() != null
+                                            ? author.getUserType().toString()
+                                            : null
+                            )
+                            .build();
+        }
 
         return PostDetailsResponse.builder()
                 .id(post.getId())
@@ -154,8 +171,15 @@ public class PostServiceImpl implements PostService {
                 .image(post.getImage())
                 .datePublication(post.getDatePublication())
                 .author(authorResponse)
+
+                // Nombre total de likes
                 .likeCount(likeCount)
+
+                // Est-ce que CE user a liké ?
+                .likedByCurrentUser(likedByCurrentUser)
+
                 .commentCount(commentCount)
                 .comments(comments)
                 .build();
-    }}
+    }
+}

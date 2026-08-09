@@ -26,7 +26,7 @@ import { Typography } from "../../../constants/home/Typography";
 
 import { getUser } from "../../../utils/storage";
 import { getProfileImageUrl } from "../../../services/authService";
-import { getAllPosts, createPost } from "../../../services/postService";
+import { getAllPosts, createPost ,getPostById} from "../../../services/postService";
 
 const TRENDING = [
   "#SuperTounsi",
@@ -85,28 +85,80 @@ export default function BlogScreen() {
   /**
    * Chargement des posts depuis Spring Boot
    */
-  const loadPosts = async () => {
-    try {
-      setLoading(true);
+ const loadPosts = async () => {
+  try {
+    setLoading(true);
 
-      const data = await getAllPosts();
-
-      console.log("POSTS API :", data);
-
-      setPosts(Array.isArray(data) ? data : []);
-    } catch (error: any) {
-      console.error(
-        "Erreur récupération des posts :",
-        error?.response?.data || error
-      );
-    } finally {
-      setLoading(false);
+    if (!currentUser?.id) {
+      return;
     }
-  };
 
-  useEffect(() => {
-    loadPosts();
-  }, []);
+    const data = await getAllPosts();
+
+    if (!Array.isArray(data)) {
+      setPosts([]);
+      return;
+    }
+
+    const postsWithDetails = await Promise.all(
+      data
+        .filter((post) => post != null)
+        .map(async (post) => {
+          try {
+            const details = await getPostById(
+              post.id,
+              currentUser.id
+            );
+
+            console.log(
+              `POST ${post.id}:`,
+              "likes =",
+              details.likeCount,
+              "likedByCurrentUser =",
+              details.likedByCurrentUser
+            );
+
+            return {
+              ...post,
+              ...details,
+            };
+          } catch (error) {
+            console.error(
+              `Erreur récupération détails du post ${post.id}:`,
+              error
+            );
+
+            return {
+              ...post,
+              likeCount: 0,
+              likedByCurrentUser: false,
+            };
+          }
+        })
+    );
+
+    setPosts(postsWithDetails);
+
+  } catch (error: any) {
+    console.error(
+      "Erreur récupération des posts:",
+      error?.response?.data || error
+    );
+
+    setPosts([]);
+
+  } finally {
+    setLoading(false);
+  }
+};
+
+useEffect(() => {
+  if (!currentUser?.id) {
+    return;
+  }
+
+  loadPosts();
+}, [currentUser]);
 
   /**
    * ===== LOGIQUE DU COMPOSER =====
@@ -456,10 +508,11 @@ const handlePost = async () => {
         {!loading && filtered.length > 0 && (
           <View style={styles.feed}>
             {filtered.map((post) => (
-              <BlogPostCard
-                key={post.id}
-                post={post}
-              />
+             <BlogPostCard
+            key={post.id}
+            post={post}
+            currentUser={currentUser}
+          />
             ))}
           </View>
         )}

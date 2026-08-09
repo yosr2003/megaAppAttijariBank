@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { getPostImageUrl } from "../services/postService";
+import { getPostImageUrl,  togglePostLike } from "../services/postService";
 import {
   Image,
   StyleSheet,
@@ -33,10 +33,13 @@ interface ApiPost {
   datePublication: string;
   image?: string | null;
   author: PostAuthor;
+  likeCount?: number;
+  likedByCurrentUser?: boolean;
 }
 
 interface BlogPostCardProps {
   post: ApiPost;
+  currentUser: any;
 }
 
 function formatDate(dateString: string) {
@@ -89,10 +92,18 @@ function renderContent(text: string) {
 
 export default function BlogPostCard({
   post,
+  currentUser,
 }: BlogPostCardProps) {
 
-  const [liked, setLiked] = useState(false);
-  const [likeCount, setLikeCount] = useState(0);
+const [liked, setLiked] = useState(
+  post.likedByCurrentUser ?? false
+);
+
+const [likeCount, setLikeCount] = useState(
+  post.likeCount ?? 0
+);
+
+const [likeLoading, setLikeLoading] = useState(false);
 
   const [authorImage, setAuthorImage] =
     useState<any>(null);
@@ -148,15 +159,40 @@ const [postImage, setPostImage] =
   loadPostImage();
 }, [post.image]);
 
-  const toggleLike = () => {
-    setLiked((previous) => {
-      setLikeCount((count) =>
-        previous ? count - 1 : count + 1
-      );
 
-      return !previous;
-    });
-  };
+
+const toggleLike = async () => {
+  if (likeLoading) return;
+
+  if (!currentUser?.id) {
+    console.error("Utilisateur connecté introuvable");
+    return;
+  }
+
+  try {
+    setLikeLoading(true);
+
+    const response = await togglePostLike(
+      post.id,
+      currentUser.id
+    );
+
+    console.log("LIKE RESPONSE :", response);
+
+    // Le backend nous dit si CE currentUser
+    // possède toujours le like
+    setLiked(response.likedByCurrentUser);
+    setLikeCount(response.likeCount);
+
+  } catch (error: any) {
+    console.error(
+      "Erreur LIKE :",
+      error?.response?.data || error
+    );
+  } finally {
+    setLikeLoading(false);
+  }
+};
 
   const authorName =
     `${post.author?.firstName ?? ""} ${
@@ -256,29 +292,26 @@ const [postImage, setPostImage] =
       <View style={styles.footer}>
 
         {/* LIKE */}
-        <TouchableOpacity
-          style={styles.actionBtn}
-          onPress={toggleLike}
-          activeOpacity={0.7}
-        >
-          <Ionicons
-            name={
-              liked
-                ? "heart"
-                : "heart-outline"
-            }
-            size={18}
-            color={
-              liked
-                ? Colors.danger
-                : Colors.textMuted
-            }
-          />
+       <TouchableOpacity
+  style={styles.actionBtn}
+  onPress={toggleLike}
+  activeOpacity={0.7}
+  disabled={likeLoading}
+>
+  <Ionicons
+    name={liked ? "heart" : "heart-outline"}
+    size={18}
+    color={
+      liked
+        ? Colors.danger
+        : Colors.textMuted
+    }
+  />
 
-          <Text style={styles.actionText}>
-            {likeCount}
-          </Text>
-        </TouchableOpacity>
+  <Text style={styles.actionText}>
+    {likeCount}
+  </Text>
+</TouchableOpacity>
 
         {/* COMMENTAIRES */}
         <TouchableOpacity

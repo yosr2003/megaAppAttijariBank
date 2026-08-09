@@ -21,6 +21,7 @@ import { getProfileImageUrl } from "../../../services/authService";
 import {
   getPostById,
   getPostImageUrl,
+    togglePostLike
 } from "../../../services/postService";
 
 import { BlogComment } from "../../../types/content";
@@ -73,12 +74,23 @@ interface PostDetailsResponse {
   contenu: string;
   image?: string | null;
   datePublication: string;
-  author: PostAuthor;
+
+  author: {
+    id: number;
+    firstName: string;
+    lastName: string;
+    profileImage?: string | null;
+    role?: string;
+    userType?: string;
+  };
 
   likeCount: number;
-  commentCount: number;
 
-  comments: CommentResponse[];
+  // IMPORTANT
+  likedByCurrentUser: boolean;
+
+  commentCount: number;
+  comments: any[];
 }
 
 /* ============================================================
@@ -132,127 +144,111 @@ const [authorAvatar, setAuthorAvatar] = useState<any>(null);
      CHARGER LE POST + DETAILS
   ============================================================ */
 
-  useEffect(() => {
-    const loadPost = async () => {
-      if (!id) {
-        console.error("ID du post manquant");
-        setLoading(false);
-        return;
+ useEffect(() => {
+  const loadPost = async () => {
+    if (!id) {
+      console.error("ID du post manquant");
+      setLoading(false);
+      return;
+    }
+
+    if (!currentUser?.id) {
+      console.log(
+        "En attente de l'utilisateur connecté..."
+      );
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      console.log(
+        "Récupération des détails du post ID :",
+        id
+      );
+
+      console.log(
+        "CURRENT USER ID :",
+        currentUser.id
+      );
+
+      const data: PostDetailsResponse =
+        await getPostById(
+          id,
+          currentUser.id
+        );
+
+      console.log(
+        "POST DETAILS API :",
+        data
+      );
+
+      console.log(
+        "MON LIKE :",
+        data.likedByCurrentUser
+      );
+
+      setPost(data);
+      if (data.image) {
+        const image = await getPostImageUrl(data.image);
+
+        console.log("DETAIL POST IMAGE :", image);
+
+        setPostImage(image);
+      } else {
+        setPostImage(null);
       }
+      /* ======================================================
+         LIKES
+      ====================================================== */
 
-      try {
-        setLoading(true);
+      setLikeCount(data.likeCount ?? 0);
+      setLiked(
+        data.likedByCurrentUser ?? false
+      );
 
-        console.log(
-          "Récupération des détails du post ID :",
-          id
-        );
+      /* ======================================================
+         COMMENTS
+      ====================================================== */
 
-        const data: PostDetailsResponse =
-          await getPostById(id);
+      const apiComments: BlogComment[] =
+        (data.comments ?? []).map((comment) => ({
+          id: comment.id.toString(),
 
-        console.log(
-          "POST DETAILS API :",
-          data
-        );
+          author: {
+            name:
+              `${comment.authorFirstName} ${comment.authorLastName}`,
 
-        setPost(data);
+            role:
+              comment.authorRole ?? "Membre",
 
-        /* ======================================================
-           LIKES
-        ====================================================== */
+            avatar:
+              comment.authorProfileImage
+                ? comment.authorProfileImage
+                : "https://i.pravatar.cc/150?img=68",
+          },
 
-        setLikeCount(data.likeCount ?? 0);
+          text: comment.contenu,
 
-        /* ======================================================
-           COMMENTS
-        ====================================================== */
+          time: formatCommentDate(
+            comment.dateCommentaire
+          ),
+        }));
 
-        const apiComments: BlogComment[] =
-          (data.comments ?? []).map((comment) => ({
-            id: comment.id.toString(),
+      setComments(apiComments);
 
-            author: {
-              name:
-                `${comment.authorFirstName} ${comment.authorLastName}`,
+    } catch (error) {
+      console.error(
+        "Erreur récupération détails du post :",
+        error
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
 
-              role:
-                comment.authorRole ?? "Membre",
-
-              avatar:
-                comment.authorProfileImage
-                  ? comment.authorProfileImage
-                  : "https://i.pravatar.cc/150?img=68",
-            },
-
-            text: comment.contenu,
-
-            time: formatCommentDate(
-              comment.dateCommentaire
-            ),
-          }));
-
-        setComments(apiComments);
-
-        /* ======================================================
-           IMAGE DU POST
-        ====================================================== */
-
-        if (data.image) {
-          try {
-            const imageSource =
-              await getPostImageUrl(data.image);
-
-            console.log(
-              "POST IMAGE SOURCE :",
-              imageSource
-            );
-
-            setPostImage(imageSource);
-          } catch (imageError) {
-            console.error(
-              "Erreur récupération image du post :",
-              imageError
-            );
-
-            setPostImage(null);
-          }
-        } else {
-          setPostImage(null);
-        }
-
-        /* ======================================================
-          IMAGE PROFILE AUTHOR
-        ====================================================== */
-        if (data.author?.profileImage) {
-          try {
-            const img = await getProfileImageUrl(data.author.profileImage);
-            setAuthorAvatar(img);
-          } catch (e) {
-            console.error("Erreur image auteur :", e);
-            setAuthorAvatar(null);
-          }
-        } else {
-          setAuthorAvatar(null);
-        }
-
-      } catch (error: any) {
-        console.error(
-          "Erreur récupération du post :",
-          error?.response?.data || error
-        );
-
-        setPost(null);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-
-
-
-    loadPost();
-  }, [id]);
+  loadPost();
+}, [id, currentUser]);
 
   /* ============================================================
      CHARGER UTILISATEUR CONNECTÉ
@@ -346,17 +342,55 @@ const [authorAvatar, setAuthorAvatar] = useState<any>(null);
      - aucune modification BD
   ============================================================ */
 
-  const toggleLike = () => {
-    setLiked((previousLiked) => {
-      setLikeCount((count) =>
-        previousLiked
-          ? count - 1
-          : count + 1
+const toggleLike = async () => {
+  if (!post || !currentUser?.id) {
+    console.error(
+      "Impossible de liker : utilisateur ou post manquant"
+    );
+    return;
+  }
+
+  try {
+    console.log(
+      "TOGGLE LIKE - POST :",
+      post.id
+    );
+
+    console.log(
+      "TOGGLE LIKE - USER :",
+      currentUser.id
+    );
+
+    const response =
+      await togglePostLike(
+        post.id,
+        currentUser.id
       );
 
-      return !previousLiked;
-    });
-  };
+    console.log(
+      "LIKE RESPONSE :",
+      response
+    );
+
+    /*
+     * Le backend est la source de vérité.
+     * On récupère directement son résultat.
+     */
+    setLikeCount(
+      response.likeCount ?? 0
+    );
+
+    setLiked(
+      response.likedByCurrentUser ?? false
+    );
+
+  } catch (error) {
+    console.error(
+      "Erreur toggle like :",
+      error
+    );
+  }
+};
 
   /* ============================================================
      LOADING

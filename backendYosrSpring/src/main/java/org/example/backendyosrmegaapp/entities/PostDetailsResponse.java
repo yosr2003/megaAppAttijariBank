@@ -28,6 +28,7 @@ public class PostDetailsResponse {
     private PostAuthorResponse author;
 
     private long likeCount;
+    private boolean likedByCurrentUser;
 
     private long commentCount;
 

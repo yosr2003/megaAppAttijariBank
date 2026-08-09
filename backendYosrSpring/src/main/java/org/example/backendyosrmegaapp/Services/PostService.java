@@ -22,5 +22,9 @@ public interface PostService {
 
     void deletePost(Long id);
 
-    PostDetailsResponse getPostDetails(Long postId);
+
+    PostDetailsResponse getPostDetails(
+            Long postId,
+            Long userId
+    );
 }

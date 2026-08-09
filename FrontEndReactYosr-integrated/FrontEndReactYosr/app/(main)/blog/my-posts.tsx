@@ -465,10 +465,11 @@ export default function MyPostsScreen() {
           posts.length > 0 && (
             <View>
               {posts.map((post) => (
-                <BlogPostCard
-                  key={post.id}
-                  post={post}
-                />
+            <BlogPostCard
+            key={post.id}
+            post={post}
+            currentUser={currentUser}
+          />
               ))}
             </View>
           )}

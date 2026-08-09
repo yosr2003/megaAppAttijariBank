@@ -20,10 +20,17 @@ export const getAllPosts = async () => {
 /**
  * Récupérer un post par son ID
  */
-export const getPostById = async (id: string | number) => {
+
+export const getPostById = async (
+  id: string | number,
+  userId: number
+) => {
   const token = await getToken();
 
   const response = await api.get(`/posts/${id}`, {
+    params: {
+      userId,
+    },
     headers: {
       Authorization: `Bearer ${token}`,
     },
@@ -129,6 +136,28 @@ export const createPost = async (
   );
 
   console.log("POST CREATED :", response.data);
+
+  return response.data;
+};
+
+export const togglePostLike = async (
+  postId: number,
+  userId: number
+) => {
+  const token = await getToken();
+
+  const response = await api.post(
+    `/posts/${postId}/like`,
+    null,
+    {
+      params: {
+        userId,
+      },
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
 
   return response.data;
 };
