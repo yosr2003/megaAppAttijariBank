@@ -328,79 +328,79 @@ const [otherUserImage, setOtherUserImage] =
    * ================================
    */
 
-  const handleSend =
-    async (
-      text: string
-    ) => {
+const handleSend = async (
+  text: string,
+  image?: string | null
+) => {
 
-      if (
-        !conversation ||
-        !currentUserId ||
-        sending
-      ) {
+  if (
+    !conversation ||
+    !currentUserId ||
+    sending
+  ) {
+    return;
+  }
 
-        return;
+  /*
+   * Il faut avoir au moins
+   * un texte OU une image.
+   */
+  if (
+    !text.trim() &&
+    !image
+  ) {
+    return;
+  }
 
-      }
+  try {
 
-      try {
+    setSending(true);
 
-        setSending(true);
+    const newMessage =
+      await sendMessage(
+        Number(conversation.id),
+        Number(currentUserId),
+        text,
+        image
+      );
 
-        const newMessage =
-          await sendMessage(
-            Number(
-              conversation.id
-            ),
+    /*
+     * Ajouter immédiatement
+     * le message envoyé.
+     */
+    setMessages(
+      (prev) => [
+        ...prev,
+        newMessage,
+      ]
+    );
 
-            Number(
-              currentUserId
-            ),
+    /*
+     * Scroll vers le bas.
+     */
+    setTimeout(() => {
 
-            text,
+      scrollRef.current?.scrollToEnd({
+        animated: true,
+      });
 
-            null
-          );
+    }, 100);
 
-        /*
-         * Ajouter immédiatement
-         * le nouveau message.
-         */
-        setMessages(
-          (prev) => [
-            ...prev,
-            newMessage,
-          ]
-        );
+  } catch (error: any) {
 
-        /*
-         * Scroll.
-         */
-        setTimeout(() => {
+    console.error(
+      "Erreur envoi message :",
+      error?.response?.data ||
+      error
+    );
 
-          scrollRef.current?.scrollToEnd({
-            animated: true,
-          });
+  } finally {
 
-        }, 100);
+    setSending(false);
+  }
+};
 
-      } catch (
-        error: any
-      ) {
 
-        console.error(
-          "Erreur envoi message :",
-          error?.response?.data ||
-          error
-        );
-
-      } finally {
-
-        setSending(false);
-
-      }
-
-    };
 
   /*
    * ================================

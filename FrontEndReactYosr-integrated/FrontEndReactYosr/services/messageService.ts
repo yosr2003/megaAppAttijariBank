@@ -1,4 +1,3 @@
-
 import { api } from "./api";
 import { getToken } from "../utils/storage";
 
@@ -27,8 +26,10 @@ export const getConversationMessages = async (
   return response.data;
 };
 
+
 /* =========================
-   ENVOYER UN MESSAGE
+   ENVOYER MESSAGE
+   TEXTE + IMAGE
 ========================= */
 
 export const sendMessage = async (
@@ -39,17 +40,47 @@ export const sendMessage = async (
 ) => {
   const token = await getToken();
 
+  const formData = new FormData();
+
+  formData.append(
+    "conversationId",
+    String(conversationId)
+  );
+
+  formData.append(
+    "senderId",
+    String(senderId)
+  );
+
+  if (contenu && contenu.trim()) {
+    formData.append(
+      "contenu",
+      contenu.trim()
+    );
+  }
+
+  if (image) {
+    formData.append(
+      "image",
+      {
+        uri: image,
+        name: `message-${Date.now()}.jpg`,
+        type: "image/jpeg",
+      } as any
+    );
+  }
+
   const response = await api.post(
     "/messages",
-    {
-      conversationId,
-      senderId,
-      contenu,
-      image: image ?? null,
-    },
+    formData,
     {
       headers: {
         Authorization: `Bearer ${token}`,
+
+        // IMPORTANT :
+        // on écrase le application/json
+        // uniquement pour cette requête
+        "Content-Type": "multipart/form-data",
       },
     }
   );
@@ -58,8 +89,7 @@ export const sendMessage = async (
 };
 
 /* =========================
-   MARQUER UNE CONVERSATION
-   COMME LUE
+   MARQUER CONVERSATION LUE
 ========================= */
 
 export const markConversationAsRead = async (
@@ -82,9 +112,9 @@ export const markConversationAsRead = async (
   );
 };
 
+
 /* =========================
-   MARQUER UN MESSAGE
-   COMME LU
+   MARQUER MESSAGE LU
 ========================= */
 
 export const markMessageAsRead = async (
@@ -106,6 +136,7 @@ export const markMessageAsRead = async (
     }
   );
 };
+
 
 /* =========================
    SUPPRIMER
@@ -129,6 +160,7 @@ export const deleteMessage = async (
     }
   );
 };
+
 
 /* =========================
    NON LUS

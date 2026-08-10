@@ -1,13 +1,21 @@
-
 package org.example.backendyosrmegaapp.Services;
 
 import org.example.backendyosrmegaapp.entities.ChatMessageResponse;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.util.List;
 
 public interface MessageService {
 
     ChatMessageResponse sendMessage(
+            Long conversationId,
+            Long senderId,
+            String contenu,
+            MultipartFile image
+    ) throws IOException;
+
+    ChatMessageResponse sendTextMessage(
             Long conversationId,
             Long senderId,
             String contenu,
@@ -38,4 +46,3 @@ public interface MessageService {
             Long userId
     );
 }
-

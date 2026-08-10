@@ -7,9 +7,18 @@ import org.example.backendyosrmegaapp.entities.ChatMessageRequest;
 import org.example.backendyosrmegaapp.entities.ChatMessageResponse;
 import org.example.backendyosrmegaapp.entities.MessageResponse;
 
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.UrlResource;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.List;
 
 @RestController
@@ -18,18 +27,27 @@ import java.util.List;
 public class MessageController {
 
     private final MessageService messageService;
-
-    @PostMapping
+    @Value("${app.upload.message-images}")
+    private String messageImagesDirectory;
+    @PostMapping(
+            consumes = MediaType.MULTIPART_FORM_DATA_VALUE
+    )
     public ResponseEntity<ChatMessageResponse> sendMessage(
-            @RequestBody ChatMessageRequest request
-    ) {
+            @RequestParam Long conversationId,
+            @RequestParam Long senderId,
+            @RequestParam(required = false) String contenu,
+            @RequestPart(
+                    value = "image",
+                    required = false
+            ) MultipartFile image
+    ) throws IOException {
 
         return ResponseEntity.ok(
                 messageService.sendMessage(
-                        request.getConversationId(),
-                        request.getSenderId(),
-                        request.getContenu(),
-                        request.getImage()
+                        conversationId,
+                        senderId,
+                        contenu,
+                        image
                 )
         );
     }
@@ -98,5 +116,47 @@ public class MessageController {
         );
 
         return ResponseEntity.noContent().build();
+    }
+    @GetMapping("/images/{filename:.+}")
+    public ResponseEntity<Resource> getMessageImage(
+            @PathVariable String filename
+    ) {
+
+        try {
+
+            Path file =
+                    Paths.get(
+                                    messageImagesDirectory
+                            )
+                            .resolve(filename)
+                            .normalize();
+
+            Resource resource =
+                    new UrlResource(
+                            file.toUri()
+                    );
+
+            if (!resource.exists()
+                    || !resource.isReadable()) {
+
+                return ResponseEntity.notFound().build();
+            }
+
+            String contentType =
+                    Files.probeContentType(file);
+
+            MediaType mediaType =
+                    contentType != null
+                            ? MediaType.parseMediaType(contentType)
+                            : MediaType.APPLICATION_OCTET_STREAM;
+
+            return ResponseEntity.ok()
+                    .contentType(mediaType)
+                    .body(resource);
+
+        } catch (Exception e) {
+
+            return ResponseEntity.notFound().build();
+        }
     }
 }
