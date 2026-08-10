@@ -17,6 +17,7 @@ import { Radius, Spacing } from "../constants/home/Layout";
 import { Typography } from "../constants/home/Typography";
 
 import { getProfileImageUrl } from "../services/postService";
+import PostOptionsMenu from "./PostOptionsMenu";
 
 interface PostAuthor {
   id: number;
@@ -40,6 +41,7 @@ interface ApiPost {
 interface BlogPostCardProps {
   post: ApiPost;
   currentUser: any;
+  onDelete?: (postId: number | string) => void;
 }
 
 function formatDate(dateString: string) {
@@ -93,6 +95,7 @@ function renderContent(text: string) {
 export default function BlogPostCard({
   post,
   currentUser,
+  onDelete,
 }: BlogPostCardProps) {
 
 const [liked, setLiked] = useState(
@@ -261,6 +264,12 @@ const toggleLike = async () => {
           </Text>
 
         </View>
+
+        {/* MENU 3 POINTS */}
+        <PostOptionsMenu
+        postId={post.id}
+        onDelete={onDelete}
+      />
 
       </View>
 

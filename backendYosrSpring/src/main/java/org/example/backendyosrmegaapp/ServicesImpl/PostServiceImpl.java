@@ -83,21 +83,30 @@ public class PostServiceImpl implements PostService {
     }
 
     @Override
-    public Post updatePost(Long id, Post post) {
+    public Post updatePost(Long id, String contenu, MultipartFile image) {
 
         Post existingPost = postRepository.findById(id)
                 .orElseThrow(() ->
                         new RuntimeException("Post introuvable avec l'id : " + id)
                 );
 
-        existingPost.setTitre(post.getTitre());
-        existingPost.setContenu(post.getContenu());
-        existingPost.setImage(post.getImage());
+        existingPost.setContenu(contenu);
+
+        // 🔥 Gestion image
+        if (image != null && !image.isEmpty()) {
+            try {
+                String filename = fileStorageService.savePostImage(image);
+                existingPost.setImage(filename);
+            } catch (IOException e) {
+                throw new RuntimeException("Erreur upload image", e);
+            }
+        }
 
         return postRepository.save(existingPost);
     }
 
     @Override
+    @Transactional
     public void deletePost(Long id) {
 
         if (!postRepository.existsById(id)) {
@@ -106,6 +115,13 @@ public class PostServiceImpl implements PostService {
             );
         }
 
+        // 1. Supprimer les commentaires liés au post
+        commentaireService.supprimerCommentairesDuPost(id);
+
+        // 2. Supprimer les likes liés au post
+        postLikeService.supprimerLikesDuPost(id);
+
+        // 3. Supprimer le post
         postRepository.deleteById(id);
     }
 

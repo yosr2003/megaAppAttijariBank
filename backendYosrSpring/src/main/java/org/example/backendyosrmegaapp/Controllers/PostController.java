@@ -79,14 +79,15 @@ private final FileStorageService fileStorageService;
     // UPDATE
     // ============================
 
-    @PutMapping("/{id}")
+    @PutMapping(value = "/{id}", consumes = "multipart/form-data")
     public ResponseEntity<Post> updatePost(
             @PathVariable Long id,
-            @RequestBody Post post
+            @RequestParam("contenu") String contenu,
+            @RequestPart(value = "image", required = false) MultipartFile image
     ) {
 
         return ResponseEntity.ok(
-                postService.updatePost(id, post)
+                postService.updatePost(id, contenu, image)
         );
     }
 

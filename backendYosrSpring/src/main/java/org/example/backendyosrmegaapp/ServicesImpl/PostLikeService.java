@@ -88,4 +88,9 @@ public class PostLikeService {
                 .map(like -> Boolean.TRUE.equals(like.getStatut()))
                 .orElse(false);
     }
+
+    @Transactional
+    public void supprimerLikesDuPost(Long postId) {
+        postLikeRepository.deleteByPostId(postId);
+    }
 }

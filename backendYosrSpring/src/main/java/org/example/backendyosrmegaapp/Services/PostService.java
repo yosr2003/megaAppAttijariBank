@@ -18,7 +18,7 @@ public interface PostService {
 
     List<Post> getPostsByAuthor(Long authorId);
 
-    Post updatePost(Long id, Post post);
+    Post updatePost(Long id, String contenu, MultipartFile image);
 
     void deletePost(Long id);
 

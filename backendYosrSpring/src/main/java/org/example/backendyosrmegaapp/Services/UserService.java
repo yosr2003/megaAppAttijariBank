@@ -1,6 +1,7 @@
 package org.example.backendyosrmegaapp.Services;
 
 import org.example.backendyosrmegaapp.entities.User;
+import org.example.backendyosrmegaapp.entities.UserConversationResponse;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -21,4 +22,13 @@ public interface UserService {
     public List<User> getAllUsers();
 
     void resetPassword(String token, String newPassword);
+
+    //	@Override
+    //	public List<User> getListByport(Long id) {
+    //		// TODO Auto-generated method stub
+    //		return UserRepository.findList(id);
+    //	}
+    List<UserConversationResponse> getAllUsersForConversations();
+
+    UserConversationResponse toConversationResponse(User user);
 }

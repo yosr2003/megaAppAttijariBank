@@ -8,6 +8,7 @@ import org.example.backendyosrmegaapp.Repositories.UserRepository;
 import org.example.backendyosrmegaapp.entities.*;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -98,6 +99,11 @@ public class CommentaireServiceImpl {
                 .stream()
                 .map(this::toResponse)
                 .toList();
+    }
+
+    @Transactional
+    public void supprimerCommentairesDuPost(Long postId) {
+        commentaireRepository.deleteByPostId(postId);
     }
 
 

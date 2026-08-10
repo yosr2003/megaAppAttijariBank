@@ -5,13 +5,13 @@ import org.example.backendyosrmegaapp.Repositories.UserRepository;
 import org.example.backendyosrmegaapp.Services.UserService;
 import org.example.backendyosrmegaapp.entities.PasswordResetToken;
 import org.example.backendyosrmegaapp.entities.User;
+import org.example.backendyosrmegaapp.entities.UserConversationResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
-import java.util.UUID;
 
 @Service
 public class UserServiceImpl implements UserService {
@@ -84,6 +84,30 @@ public class UserServiceImpl implements UserService {
 //		// TODO Auto-generated method stub
 //		return UserRepository.findList(id);
 //	}
+@Override
+public List<UserConversationResponse> getAllUsersForConversations() {
+
+        return UserRepository.findAll()
+                .stream()
+                .map(this::toConversationResponse)
+                .toList();
+    }
+    @Override
+    public UserConversationResponse toConversationResponse(User user) {
+
+        return UserConversationResponse.builder()
+                .id(user.getId())
+                .firstName(user.getFirstName())
+                .lastName(user.getLastName())
+                .email(user.getEmail())
+                .profileImage(user.getProfileImage())
+                .userType(
+                        user.getUserType() != null
+                                ? user.getUserType().name()
+                                : null
+                )
+                .build();
+    }
 
 
 

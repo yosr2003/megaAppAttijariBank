@@ -39,7 +39,10 @@ public class Message {
 
     @PrePersist
     public void onCreate() {
-        sentAt = LocalDateTime.now();
+
+        if (sentAt == null) {
+            sentAt = LocalDateTime.now();
+        }
 
         if (isRead == null) {
             isRead = false;

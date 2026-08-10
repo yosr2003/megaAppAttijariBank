@@ -378,5 +378,14 @@ public class UserController {
                 .body(resource);
     }
 
+    @GetMapping("/conversations")
+    public ResponseEntity<List<UserConversationResponse>>
+    getUsersForConversations() {
+
+        return ResponseEntity.ok(
+                userService.getAllUsersForConversations()
+        );
+    }
+
 
 }

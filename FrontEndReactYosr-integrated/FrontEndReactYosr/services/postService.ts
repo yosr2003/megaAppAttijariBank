@@ -203,3 +203,65 @@ export const getProfileImageUrl = async (
     },
   };
 };
+
+export const updatePost = async (
+  postId: number,
+  contenu: string,
+  image?: string | null
+) => {
+  const token = await getToken();
+
+  const formData = new FormData();
+
+  formData.append("contenu", contenu);
+
+  // 🔥 Ajouter image seulement si elle existe
+  if (image) {
+    const filename = image.split("/").pop() || "post.jpg";
+
+    const extension =
+      filename.split(".").pop()?.toLowerCase() || "jpg";
+
+    let mimeType = "image/jpeg";
+
+    if (extension === "png") mimeType = "image/png";
+    else if (extension === "webp") mimeType = "image/webp";
+    else if (extension === "heic") mimeType = "image/heic";
+
+    formData.append("image", {
+      uri: image,
+      name: filename,
+      type: mimeType,
+    } as any);
+  }
+
+  console.log("========== UPDATE POST ==========");
+  console.log("POST ID :", postId);
+  console.log("CONTENU :", contenu);
+  console.log("IMAGE :", image);
+
+  const response = await api.put(
+    `/posts/${postId}`,
+    formData,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "multipart/form-data",
+      },
+    }
+  );
+
+  return response.data;
+};
+
+export const deletePost = async (postId: number) => {
+  const token = await getToken();
+
+  const response = await api.delete(`/posts/${postId}`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  return response.data;
+};

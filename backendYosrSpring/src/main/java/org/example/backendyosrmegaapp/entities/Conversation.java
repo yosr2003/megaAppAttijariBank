@@ -35,12 +35,10 @@ public class Conversation {
     @Column(nullable = false)
     private LocalDateTime createdAt;
 
-
-
-
-
     @PrePersist
     public void onCreate() {
-        createdAt = LocalDateTime.now();
+        if (createdAt == null) {
+            createdAt = LocalDateTime.now();
+        }
     }
 }

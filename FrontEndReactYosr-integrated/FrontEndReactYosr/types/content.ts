@@ -23,7 +23,10 @@ export interface BlogComment {
 
 export interface BlogPoll {
   question: string;
-  options: { label: string; percent: number }[];
+  options: {
+    label: string;
+    percent: number;
+  }[];
   totalVotes: number;
 }
 
@@ -41,17 +44,40 @@ export interface BlogPost {
   comments: BlogComment[];
 }
 
+/**
+ * Utilisateur utilisé dans les conversations.
+ */
 export interface ChatUser {
   name: string;
   avatar: string;
   online: boolean;
 }
 
+/**
+ * Message reçu depuis le backend Spring Boot.
+ *
+ * Correspond à ChatMessageResponse.java
+ */
 export interface ChatMessage {
-  id: string;
-  text: string;
-  sender: "me" | "them";
-  time: string;
+  id: number;
+
+  conversationId: number;
+
+  senderId: number;
+
+  senderFirstName: string;
+
+  senderLastName: string;
+
+  senderProfileImage?: string | null;
+
+  contenu?: string | null;
+
+  image?: string | null;
+
+  sentAt: string;
+
+  isRead: boolean;
 }
 
 export interface Conversation {

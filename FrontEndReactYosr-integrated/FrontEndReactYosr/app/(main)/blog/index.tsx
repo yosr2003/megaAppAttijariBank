@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -11,7 +11,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 
@@ -25,7 +25,7 @@ import { Layout, Radius, Spacing } from "../../../constants/home/Layout";
 import { Typography } from "../../../constants/home/Typography";
 
 import { getUser } from "../../../utils/storage";
-import { getProfileImageUrl } from "../../../services/postService";
+import { deletePost, getProfileImageUrl } from "../../../services/postService";
 import { getAllPosts, createPost ,getPostById} from "../../../services/postService";
 
 const TRENDING = [
@@ -152,13 +152,13 @@ export default function BlogScreen() {
   }
 };
 
-useEffect(() => {
-  if (!currentUser?.id) {
-    return;
-  }
+useFocusEffect(
+  useCallback(() => {
+    if (!currentUser?.id) return;
 
-  loadPosts();
-}, [currentUser]);
+    loadPosts();
+  }, [currentUser])
+);
 
   /**
    * ===== LOGIQUE DU COMPOSER =====
@@ -240,6 +240,42 @@ const handlePost = async () => {
   }
 };
 
+const handleDeletePost = async (
+  postId: number | string
+) => {
+  try {
+    console.log(
+      "========== SUPPRESSION POST =========="
+    );
+
+    console.log("POST ID :", postId);
+
+    await deletePost(Number(postId));
+
+    // Supprimer immédiatement le post de l'écran
+    setPosts((currentPosts) =>
+      currentPosts.filter(
+        (post) => post.id !== Number(postId)
+      )
+    );
+
+    Alert.alert(
+      "Succès",
+      "Le post a été supprimé."
+    );
+
+  } catch (error: any) {
+    console.error(
+      "Erreur suppression post :",
+      error?.response?.data || error
+    );
+
+    Alert.alert(
+      "Erreur",
+      "Impossible de supprimer le post."
+    );
+  }
+};
 
   /**
    * Pour l'instant les hashtags sont visuels.
@@ -512,6 +548,7 @@ const handlePost = async () => {
             key={post.id}
             post={post}
             currentUser={currentUser}
+            onDelete={handleDeletePost}
           />
             ))}
           </View>

@@ -11,4 +11,5 @@ public interface CommentaireRepository extends JpaRepository<Commentaire, Long> 
     List<Commentaire> findByPostIdOrderByDateCommentaireAsc(Long postId);
 
     long countByPostId(Long postId);
+    void deleteByPostId(Long postId);
 }
