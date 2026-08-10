@@ -58,157 +58,238 @@ import {
   getProfileImageUrl,
 } from "../../../services/postService";
 
+import {
+  getConversationMessages,
+} from "../../../services/messageService";
+
+import {
+  ChatMessage,
+} from "../../../types/content";
+
+interface ConversationPreview {
+  conversationId: number;
+
+  // L'utilisateur avec qui on discute
+  user: User;
+
+  // Photo de CET utilisateur
+  image: {
+    uri: string;
+    headers?: Record<string, string>;
+  } | null;
+
+  // Dernier message
+  lastMessage: ChatMessage | null;
+}
 
 export default function MessagesScreen() {
 
-  const [
-    users,
-    setUsers,
-  ] = useState<User[]>([]);
+  const [conversations, setConversations] =
+    useState<ConversationPreview[]>([]);
 
-  const [
-    currentUser,
-    setCurrentUser,
-  ] = useState<any>(null);
+  const [search, setSearch] =
+    useState("");
 
-  const [
-    search,
-    setSearch,
-  ] = useState("");
+  const [loading, setLoading] =
+    useState(true);
 
-  const [
-    loading,
-    setLoading,
-  ] = useState(true);
+  const [openingUserId, setOpeningUserId] =
+    useState<number | null>(null);
 
-  const [
-    creatingConversation,
-    setCreatingConversation,
-  ] = useState<number | null>(null);
+  const [currentUser, setCurrentUser] =
+    useState<any>(null);
 
-  const [
-    userImages,
-    setUserImages,
-  ] = useState<Record<number, any>>({});
-
-
-  /**
-   * Charger l'utilisateur connecté
-   * et tous les utilisateurs.
-   */
   useEffect(() => {
-    loadUsers();
+    loadConversations();
   }, []);
 
-
-  const loadUsers = async () => {
+  /**
+   * ========================================
+   * CHARGER LES CONVERSATIONS PRIVÉES
+   * ========================================
+   */
+  const loadConversations = async () => {
 
     try {
 
       setLoading(true);
 
       /**
-       * Utilisateur connecté.
+       * Utilisateur connecté
        */
-      const loggedUser =
-        await getUser();
+      const loggedUser = await getUser();
 
-      console.log(
-        "UTILISATEUR CONNECTÉ :",
-        loggedUser
-      );
-
-      setCurrentUser(
-        loggedUser
-      );
-
-
-      /**
-       * Tous les utilisateurs.
-       */
-      const allUsers =
-        await getAllUsers();
-
-      console.log(
-        "TOUS LES UTILISATEURS :",
-        allUsers
-      );
-
-
-      /**
-       * Ne pas afficher
-       * l'utilisateur connecté.
-       */
-      const otherUsers =
-        allUsers.filter(
-          (user) =>
-            Number(user.id) !==
-            Number(loggedUser?.id)
+      if (!loggedUser?.id) {
+        throw new Error(
+          "Utilisateur connecté introuvable"
         );
+      }
 
-
-      setUsers(
-        otherUsers
-      );
-
+      setCurrentUser(loggedUser);
 
       /**
-       * Charger les images.
+       * Tous les utilisateurs
        */
-      const images:
-        Record<number, any> = {};
+      const allUsers = await getAllUsers();
 
+      /**
+       * On enlève l'utilisateur connecté.
+       */
+      const otherUsers = allUsers.filter(
+        (user) =>
+          Number(user.id) !==
+          Number(loggedUser.id)
+      );
 
-      for (
-        const user
-        of otherUsers
-      ) {
+      const previews: ConversationPreview[] = [];
 
-        if (
-          user.profileImage
-        ) {
+      /**
+       * Pour chaque utilisateur :
+       *
+       * utilisateur A = moi
+       * utilisateur B = autre utilisateur
+       *
+       * On récupère leur conversation privée.
+       */
+      for (const user of otherUsers) {
 
-          try {
+        try {
 
-            const image =
-              await getProfileImageUrl(
-                user.profileImage
-              );
-
-            if (image) {
-
-              images[user.id] =
-                image;
-
-            }
-
-          } catch (
-            error
-          ) {
-
-            console.error(
-              `Erreur image utilisateur ${user.id}:`,
-              error
+          const conversation =
+            await createPrivateConversation(
+              Number(loggedUser.id),
+              Number(user.id)
             );
 
+          if (!conversation?.id) {
+            continue;
           }
+
+          /**
+           * Messages de cette conversation
+           */
+          const messages: ChatMessage[] =
+            await getConversationMessages(
+              Number(conversation.id),
+              Number(loggedUser.id)
+            );
+
+          /**
+           * Dernier message
+           */
+          const lastMessage =
+            messages.length > 0
+              ? messages[messages.length - 1]
+              : null;
+
+          /**
+           * ====================================
+           * PHOTO DE L'AUTRE UTILISATEUR
+           * ====================================
+           *
+           * IMPORTANT :
+           *
+           * Cette image appartient à `user`,
+           * c'est-à-dire à la personne avec
+           * qui on discute.
+           */
+          let image:
+            ConversationPreview["image"] = null;
+
+          if (user.profileImage) {
+
+            try {
+
+              const profileImage =
+                await getProfileImageUrl(
+                  user.profileImage
+                );
+
+              if (profileImage) {
+                image = profileImage;
+              }
+
+            } catch (imageError) {
+
+              console.log(
+                `Impossible de charger la photo de ${user.firstName}`,
+                imageError
+              );
+
+            }
+          }
+
+          /**
+           * Ajouter la conversation
+           */
+          previews.push({
+            conversationId:
+              Number(conversation.id),
+
+            user,
+
+            image,
+
+            lastMessage,
+          });
+
+        } catch (conversationError) {
+
+          console.log(
+            `Impossible de charger la conversation avec ${user.firstName}`,
+            conversationError
+          );
+
         }
       }
 
+      /**
+       * ====================================
+       * TRI
+       * ====================================
+       *
+       * Les conversations ayant un message
+       * apparaissent en premier.
+       *
+       * Puis :
+       * plus récent → plus ancien
+       */
+      previews.sort((a, b) => {
 
-      setUserImages(
-        images
-      );
+        if (
+          !a.lastMessage &&
+          !b.lastMessage
+        ) {
+          return 0;
+        }
 
+        if (!a.lastMessage) {
+          return 1;
+        }
 
-    } catch (
-      error: any
-    ) {
+        if (!b.lastMessage) {
+          return -1;
+        }
+
+        return (
+          new Date(
+            b.lastMessage.sentAt || 0
+          ).getTime()
+          -
+          new Date(
+            a.lastMessage.sentAt || 0
+          ).getTime()
+        );
+      });
+
+      setConversations(previews);
+
+    } catch (error: any) {
 
       console.error(
-        "Erreur chargement utilisateurs :",
+        "Erreur chargement conversations :",
         error?.response?.data ||
-          error
+        error
       );
 
     } finally {
@@ -218,671 +299,571 @@ export default function MessagesScreen() {
     }
   };
 
+  /**
+   * ========================================
+   * TEMPS STYLE MESSENGER
+   * ========================================
+   */
+  const formatConversationTime = (
+    date?: string | null
+  ) => {
+
+    if (!date) {
+      return "";
+    }
+
+    const messageDate = new Date(date);
+    const now = new Date();
+
+    const diff =
+      now.getTime() -
+      messageDate.getTime();
+
+    const minute = 60 * 1000;
+    const hour = 60 * minute;
+    const day = 24 * hour;
+
+    if (diff < minute) {
+      return "à l'instant";
+    }
+
+    if (diff < hour) {
+
+      const minutes =
+        Math.floor(diff / minute);
+
+      return `il y a ${minutes} min`;
+    }
+
+    if (diff < day) {
+
+      const hours =
+        Math.floor(diff / hour);
+
+      return `il y a ${hours} h`;
+    }
+
+    const yesterday = new Date();
+
+    yesterday.setDate(
+      yesterday.getDate() - 1
+    );
+
+    if (
+      messageDate.toDateString() ===
+      yesterday.toDateString()
+    ) {
+      return "hier";
+    }
+
+    return messageDate.toLocaleDateString(
+      "fr-FR",
+      {
+        day: "2-digit",
+        month: "2-digit",
+      }
+    );
+  };
 
   /**
-   * Recherche utilisateur.
+   * ========================================
+   * TEXTE DU DERNIER MESSAGE
+   * ========================================
    */
-  const filteredUsers =
+  const getLastMessageText = (
+    preview: ConversationPreview
+  ) => {
+
+    if (!preview.lastMessage) {
+      return "Aucun message";
+    }
+
+    const message =
+      preview.lastMessage;
+
+    const isMe =
+      Number(message.senderId) ===
+      Number(currentUser?.id);
+
+    /**
+     * Message texte
+     */
+    if (message.contenu) {
+
+      return isMe
+        ? `Vous : ${message.contenu}`
+        : `${preview.user.firstName} : ${message.contenu}`;
+    }
+
+    /**
+     * Message image
+     */
+    if (message.image) {
+
+      return isMe
+        ? "Vous : 📷 Photo"
+        : `${preview.user.firstName} : 📷 Photo`;
+    }
+
+    return "Message";
+  };
+
+  /**
+   * ========================================
+   * RECHERCHE
+   * ========================================
+   */
+  const filteredConversations =
     useMemo(() => {
 
       const query =
-        search
-          .trim()
-          .toLowerCase();
-
+        search.trim().toLowerCase();
 
       if (!query) {
-        return users;
+        return conversations;
       }
 
-
-      return users.filter(
-        (user) => {
+      return conversations.filter(
+        (conversation) => {
 
           const fullName =
-            `${user.firstName} ${user.lastName}`
+            `${conversation.user.firstName} ${conversation.user.lastName}`
               .toLowerCase();
 
-          const email =
-            user.email
-              ?.toLowerCase() ||
-            "";
-
+          const lastMessage =
+            conversation.lastMessage?.contenu
+              ?.toLowerCase() || "";
 
           return (
-            fullName.includes(
-              query
-            ) ||
-            email.includes(
-              query
-            )
+            fullName.includes(query) ||
+            lastMessage.includes(query)
           );
-
         }
       );
 
     }, [
-      users,
+      conversations,
       search,
     ]);
 
-
   /**
-   * Cliquer sur un utilisateur.
-   *
-   * Exemple :
-   *
-   * Ahmed Ben Ali
-   *      ↓
-   * conversation 15
-   *      ↓
-   * /messages/15
-   *
-   * On passe aussi :
-   * userName
-   * userId
+   * ========================================
+   * OUVRIR UNE CONVERSATION
+   * ========================================
    */
-  const handleUserPress =
-    async (
-      user: User
-    ) => {
+  const openConversation = (
+    conversation: ConversationPreview
+  ) => {
 
-      if (
-        !currentUser?.id
-      ) {
+    if (openingUserId !== null) {
+      return;
+    }
 
-        console.error(
-          "Utilisateur connecté introuvable."
-        );
+    setOpeningUserId(
+      conversation.user.id
+    );
 
-        return;
-      }
+    router.push({
+      pathname: "/messages/[id]",
 
-
-      if (
-        creatingConversation !==
-        null
-      ) {
-
-        return;
-
-      }
-
-
-      try {
-
-        setCreatingConversation(
-          user.id
-        );
-
-
-        console.log(
-          "Création/récupération conversation :",
-          {
-            user1Id:
-              currentUser.id,
-
-            user2Id:
-              user.id,
-          }
-        );
-
+      params: {
 
         /**
-         * Créer ou récupérer
-         * la conversation privée.
+         * ID de la conversation
          */
-        const conversation =
-          await createPrivateConversation(
-            Number(
-              currentUser.id
-            ),
-
-            Number(
-              user.id
-            )
-          );
-
-
-        console.log(
-          "CONVERSATION RETOURNÉE :",
-          conversation
-        );
-
-
-        if (
-          !conversation?.id
-        ) {
-
-          throw new Error(
-            "Le backend n'a pas retourné l'ID de la conversation."
-          );
-
-        }
-
+        id: String(
+          conversation.conversationId
+        ),
 
         /**
-         * IMPORTANT
-         *
-         * On passe :
-         *
-         * id        = ID conversation
-         * userName  = nom de l'utilisateur
-         * userId    = ID de l'utilisateur
+         * Nom de la personne
          */
-          router.push({
-          pathname: "/messages/[id]",
-          params: {
-            id: String(conversation.id),
-            userName: `${user.firstName} ${user.lastName}`,
-            userId: String(user.id),
-          },
-        });
+        userName:
+          `${conversation.user.firstName} ${conversation.user.lastName}`,
 
-      } catch (
-        error: any
-      ) {
+        /**
+         * ID de la personne
+         */
+        userId:
+          String(
+            conversation.user.id
+          ),
+      },
+    });
 
-        console.error(
-          "Erreur création conversation :",
-          error?.response?.data ||
-            error
-        );
-
-      } finally {
-
-        setCreatingConversation(
-          null
-        );
-
-      }
-    };
-
+    setTimeout(() => {
+      setOpeningUserId(null);
+    }, 300);
+  };
 
   return (
-
     <SafeAreaView
-      style={
-        styles.safeArea
-      }
-      edges={[
-        "top",
-      ]}
+      style={styles.safeArea}
+      edges={["top"]}
     >
 
       {/* HEADER */}
 
-      <View
-        style={
-          styles.header
-        }
-      >
+      <View style={styles.header}>
 
         <TouchableOpacity
-          onPress={() =>
-            router.back()
-          }
-          style={
-            styles.iconBtn
-          }
+          onPress={() => router.back()}
+          style={styles.backButton}
         >
 
           <Ionicons
             name="chevron-back"
-            size={22}
-            color={
-              Colors.textPrimary
-            }
+            size={24}
+            color={Colors.textPrimary}
           />
 
         </TouchableOpacity>
 
-
-        <Text
-          style={
-            styles.title
-          }
-        >
+        <Text style={styles.title}>
           Messages
         </Text>
 
-
-        <View
-          style={
-            styles.iconBtn
-          }
-        />
+        <View style={styles.headerSpacer} />
 
       </View>
 
+      {/* RECHERCHE */}
 
-      {/* SEARCH */}
-
-      <View
-        style={
-          styles.searchBar
-        }
-      >
+      <View style={styles.searchContainer}>
 
         <Ionicons
           name="search"
-          size={16}
-          color={
-            Colors.textMuted
-          }
+          size={18}
+          color={Colors.textMuted}
         />
 
-
         <TextInput
-          style={
-            styles.searchInput
-          }
-
-          placeholder="Rechercher un utilisateur..."
-
+          style={styles.searchInput}
+          placeholder="Rechercher"
           placeholderTextColor={
             Colors.textMuted
           }
-
-          value={
-            search
-          }
-
-          onChangeText={
-            setSearch
-          }
+          value={search}
+          onChangeText={setSearch}
         />
 
       </View>
-
 
       {/* LISTE */}
 
       <ScrollView
-        contentContainerStyle={
-          styles.list
-        }
-
-        showsVerticalScrollIndicator={
-          false
-        }
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.list}
       >
 
         {loading ? (
 
-          <View
-            style={
-              styles.loadingContainer
-            }
-          >
+          <View style={styles.loading}>
 
             <ActivityIndicator
               size="large"
-              color={
-                Colors.brandBlue
-              }
+              color={Colors.brandBlue}
             />
 
-            <Text
-              style={
-                styles.loadingText
-              }
-            >
-              Chargement des utilisateurs...
+            <Text style={styles.loadingText}>
+              Chargement des conversations...
+            </Text>
+
+          </View>
+
+        ) : filteredConversations.length === 0 ? (
+
+          <View style={styles.empty}>
+
+            <Ionicons
+              name="chatbubbles-outline"
+              size={50}
+              color={Colors.textMuted}
+            />
+
+            <Text style={styles.emptyTitle}>
+              Aucune conversation
+            </Text>
+
+            <Text style={styles.emptyText}>
+              Commencez une nouvelle discussion.
             </Text>
 
           </View>
 
         ) : (
 
-          <>
+          filteredConversations.map(
+            (conversation) => {
 
-            {filteredUsers.map(
-              (user) => {
+              const user =
+                conversation.user;
 
-                const image =
-                  userImages[
-                    user.id
-                  ];
+              const lastMessage =
+                conversation.lastMessage;
 
+              const isOpening =
+                openingUserId ===
+                user.id;
 
-                const isCreating =
-                  creatingConversation ===
-                  user.id;
+              return (
 
+                <TouchableOpacity
+                  key={
+                    conversation.conversationId
+                  }
+                  style={
+                    styles.conversationRow
+                  }
+                  activeOpacity={0.7}
+                  onPress={() =>
+                    openConversation(
+                      conversation
+                    )
+                  }
+                  disabled={
+                    openingUserId !== null
+                  }
+                >
 
-                return (
+                  {/* ===================== */}
+                  {/* PHOTO DE L'UTILISATEUR */}
+                  {/* ===================== */}
 
-                  <TouchableOpacity
-                    key={
-                      user.id
-                    }
-
-                    style={
-                      styles.userRow
-                    }
-
-                    activeOpacity={
-                      0.8
-                    }
-
-                    onPress={() =>
-                      handleUserPress(
-                        user
-                      )
-                    }
-
-                    disabled={
-                      creatingConversation !==
-                      null
-                    }
-                  >
-
-                    {/* AVATAR */}
-
-                    <View
-                      style={
-                        styles.avatarContainer
-                      }
-                    >
-
-                      <Image
-                        source={
-                          image || {
+                  <Image
+                    source={
+                      conversation.image
+                        ? conversation.image
+                        : {
                             uri:
                               "https://i.pravatar.cc/150?img=68",
                           }
-                        }
+                    }
+                    style={styles.avatar}
+                  />
 
-                        style={
-                          styles.avatar
-                        }
-                      />
+                  {/* CONTENU */}
 
-                    </View>
-
-
-                    {/* INFORMATIONS */}
+                  <View
+                    style={
+                      styles.conversationContent
+                    }
+                  >
 
                     <View
-                      style={
-                        styles.userInfo
-                      }
+                      style={styles.nameLine}
                     >
 
                       <Text
-                        style={
-                          styles.userName
-                        }
-
-                        numberOfLines={
-                          1
-                        }
+                        style={styles.userName}
+                        numberOfLines={1}
                       >
-
                         {user.firstName}{" "}
                         {user.lastName}
-
                       </Text>
 
-
                       <Text
-                        style={
-                          styles.userEmail
-                        }
-
-                        numberOfLines={
-                          1
-                        }
+                        style={styles.date}
                       >
-
-                        {user.email}
-
+                        {
+                          formatConversationTime(
+                            lastMessage?.sentAt
+                          )
+                        }
                       </Text>
 
                     </View>
 
+                    <Text
+                      style={styles.lastMessage}
+                      numberOfLines={1}
+                    >
+                      {
+                        getLastMessageText(
+                          conversation
+                        )
+                      }
+                    </Text>
 
-                    {/* LOADING / CHEVRON */}
+                  </View>
 
-                    {isCreating ? (
+                  {isOpening && (
+                    <ActivityIndicator
+                      size="small"
+                      color={
+                        Colors.brandBlue
+                      }
+                    />
+                  )}
 
-                      <ActivityIndicator
-                        size="small"
-                        color={
-                          Colors.brandBlue
-                        }
-                      />
+                </TouchableOpacity>
 
-                    ) : (
-
-                      <Ionicons
-                        name="chevron-forward"
-                        size={20}
-                        color={
-                          Colors.textMuted
-                        }
-                      />
-
-                    )}
-
-                  </TouchableOpacity>
-
-                );
-
-              }
-            )}
-
-
-            {filteredUsers.length ===
-              0 && (
-
-              <Text
-                style={
-                  styles.empty
-                }
-              >
-                Aucun utilisateur trouvé.
-              </Text>
-
-            )}
-
-          </>
+              );
+            }
+          )
 
         )}
 
       </ScrollView>
 
     </SafeAreaView>
-
   );
 }
 
+const styles = StyleSheet.create({
 
-const styles =
-  StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor:
+      Colors.background,
+  },
 
-    safeArea: {
-      flex: 1,
-      backgroundColor:
-        Colors.background,
-    },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal:
+      Layout.screenPadding,
+    paddingBottom:
+      Spacing.sm,
+  },
 
-    header: {
-      flexDirection:
-        "row",
+  backButton: {
+    width: 38,
+    height: 38,
+    alignItems: "center",
+    justifyContent: "center",
+  },
 
-      alignItems:
-        "center",
+  headerSpacer: {
+    width: 38,
+  },
 
-      justifyContent:
-        "space-between",
+  title: {
+    flex: 1,
+    textAlign: "center",
+    ...Typography.h2,
+    color: Colors.textPrimary,
+  },
 
-      paddingHorizontal:
-        Layout.screenPadding,
+  searchContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginHorizontal:
+      Layout.screenPadding,
+    marginBottom:
+      Spacing.sm,
+    height: 42,
+    paddingHorizontal:
+      Spacing.md,
+    backgroundColor:
+      Colors.card,
+    borderRadius:
+      Radius.pill,
+    borderWidth: 1,
+    borderColor:
+      Colors.cardBorder,
+  },
 
-      paddingBottom:
-        Spacing.md,
-    },
+  searchInput: {
+    flex: 1,
+    marginLeft:
+      Spacing.sm,
+    color:
+      Colors.textPrimary,
+    ...Typography.body,
+  },
 
-    iconBtn: {
-      width: 36,
-      height: 36,
+  list: {
+    paddingHorizontal:
+      Layout.screenPadding,
+    paddingBottom:
+      Spacing.xl,
+  },
 
-      alignItems:
-        "center",
+  conversationRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 10,
+    gap: Spacing.sm,
+  },
 
-      justifyContent:
-        "center",
-    },
+  /**
+   * PHOTO DE L'AUTRE UTILISATEUR
+   */
+  avatar: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor:
+      Colors.card,
+  },
 
-    title: {
-      ...Typography.h2,
+  conversationContent: {
+    flex: 1,
+    minWidth: 0,
+  },
 
-      color:
-        Colors.textPrimary,
-    },
+  nameLine: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 3,
+  },
 
-    searchBar: {
-      flexDirection:
-        "row",
+  userName: {
+    flex: 1,
+    ...Typography.bodyMedium,
+    color:
+      Colors.textPrimary,
+    fontWeight: "700",
+    marginRight:
+      Spacing.sm,
+  },
 
-      alignItems:
-        "center",
+  date: {
+    ...Typography.caption,
+    color:
+      Colors.textMuted,
+  },
 
-      gap: 8,
+  lastMessage: {
+    ...Typography.body,
+    color:
+      Colors.textMuted,
+  },
 
-      marginHorizontal:
-        Layout.screenPadding,
+  loading: {
+    alignItems: "center",
+    paddingTop:
+      Spacing.xl,
+  },
 
-      marginBottom:
-        Spacing.sm,
+  loadingText: {
+    ...Typography.body,
+    color:
+      Colors.textMuted,
+    marginTop:
+      Spacing.sm,
+  },
 
-      backgroundColor:
-        Colors.card,
+  empty: {
+    alignItems: "center",
+    paddingTop: 80,
+  },
 
-      borderRadius:
-        Radius.pill,
+  emptyTitle: {
+    ...Typography.h3,
+    color:
+      Colors.textPrimary,
+    marginTop:
+      Spacing.md,
+  },
 
-      borderWidth: 1,
-
-      borderColor:
-        Colors.cardBorder,
-
-      paddingHorizontal:
-        Spacing.md,
-
-      height: 42,
-    },
-
-    searchInput: {
-      flex: 1,
-
-      color:
-        Colors.textPrimary,
-
-      ...Typography.body,
-    },
-
-    list: {
-      paddingHorizontal:
-        Layout.screenPadding,
-
-      paddingBottom:
-        Spacing.xl,
-    },
-
-    userRow: {
-      flexDirection:
-        "row",
-
-      alignItems:
-        "center",
-
-      paddingVertical:
-        Spacing.md,
-
-      borderBottomWidth:
-        1,
-
-      borderBottomColor:
-        Colors.cardBorder,
-
-      gap:
-        Spacing.sm,
-    },
-
-    avatarContainer: {
-      width: 52,
-      height: 52,
-    },
-
-    avatar: {
-      width: 52,
-      height: 52,
-
-      borderRadius: 26,
-
-      backgroundColor:
-        Colors.card,
-    },
-
-    userInfo: {
-      flex: 1,
-    },
-
-    userName: {
-      ...Typography.bodyMedium,
-
-      color:
-        Colors.textPrimary,
-
-      fontWeight:
-        "700",
-
-      marginBottom: 3,
-    },
-
-    userEmail: {
-      ...Typography.caption,
-
-      color:
-        Colors.textMuted,
-    },
-
-    loadingContainer: {
-      alignItems:
-        "center",
-
-      justifyContent:
-        "center",
-
-      paddingTop:
-        Spacing.xl,
-    },
-
-    loadingText: {
-      ...Typography.body,
-
-      color:
-        Colors.textMuted,
-
-      marginTop:
-        Spacing.sm,
-    },
-
-    empty: {
-      ...Typography.body,
-
-      color:
-        Colors.textMuted,
-
-      textAlign:
-        "center",
-
-      marginTop:
-        Spacing.xl,
-    },
-
-  });
-
+  emptyText: {
+    ...Typography.body,
+    color:
+      Colors.textMuted,
+    marginTop:
+      Spacing.xs,
+  },
+});

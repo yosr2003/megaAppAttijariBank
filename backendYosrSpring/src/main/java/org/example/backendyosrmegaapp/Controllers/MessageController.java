@@ -18,7 +18,7 @@ import java.util.List;
 public class MessageController {
 
     private final MessageService messageService;
-    
+
     @PostMapping
     public ResponseEntity<ChatMessageResponse> sendMessage(
             @RequestBody ChatMessageRequest request

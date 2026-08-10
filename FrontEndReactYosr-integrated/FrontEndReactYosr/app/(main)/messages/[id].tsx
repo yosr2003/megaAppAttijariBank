@@ -6,6 +6,7 @@ import React, {
 
 import {
   Image,
+  ImageSourcePropType,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -72,8 +73,7 @@ import {
   getConversationMessages,
   markConversationAsRead,
   sendMessage,
-} from "@/services/messageService";
-
+} from "../../../services/messageService";
 
 interface ConversationData {
   id: number;
@@ -81,21 +81,8 @@ interface ConversationData {
   user2Id?: number;
 }
 
-
 export default function ChatScreen() {
 
-  /**
-   * Récupérer les paramètres
-   * de l'URL.
-   *
-   * Exemple :
-   *
-   * /messages/15
-   *
-   * userName = Ahmed Ben Ali
-   *
-   * userId = 8
-   */
   const {
     id,
     userName,
@@ -107,12 +94,10 @@ export default function ChatScreen() {
       userId?: string;
     }>();
 
-
   const scrollRef =
-    useRef<ScrollView>(
+    useRef<ScrollView | null>(
       null
     );
-
 
   const [
     conversation,
@@ -122,7 +107,6 @@ export default function ChatScreen() {
       null
     );
 
-
   const [
     otherUser,
     setOtherUser,
@@ -131,13 +115,8 @@ export default function ChatScreen() {
       null
     );
 
-
-  const [
-    otherUserImage,
-    setOtherUserImage,
-  ] =
-    useState<any>(null);
-
+const [otherUserImage, setOtherUserImage] =
+  useState<ImageSourcePropType | null>(null);
 
   const [
     messages,
@@ -147,7 +126,6 @@ export default function ChatScreen() {
       []
     );
 
-
   const [
     currentUserId,
     setCurrentUserId,
@@ -156,13 +134,11 @@ export default function ChatScreen() {
       null
     );
 
-
   const [
     loading,
     setLoading,
   ] =
     useState(true);
-
 
   const [
     sending,
@@ -170,16 +146,17 @@ export default function ChatScreen() {
   ] =
     useState(false);
 
-
-  /**
-   * Charger la conversation.
+  /*
+   * ================================
+   * CHARGEMENT
+   * ================================
    */
+
   useEffect(() => {
 
     loadConversation();
 
   }, [id]);
-
 
   const loadConversation =
     async () => {
@@ -188,65 +165,42 @@ export default function ChatScreen() {
         return;
       }
 
-
       try {
 
-        setLoading(
-          true
-        );
+        setLoading(true);
 
-
-        /**
-         * Utilisateur connecté.
-         */
         const loggedUser =
           await getUser();
 
-
         if (!loggedUser?.id) {
-
           throw new Error(
             "Utilisateur connecté introuvable"
           );
-
         }
-
 
         const currentId =
           Number(
             loggedUser.id
           );
 
-
         setCurrentUserId(
           currentId
         );
 
-
-        /**
-         * Récupérer la conversation
-         * depuis le backend.
+        /*
+         * Conversation.
          */
         const data =
           await getConversationById(
             Number(id)
           );
 
-
-        console.log(
-          "CONVERSATION :",
-          data
-        );
-
-
         setConversation(
           data
         );
 
-
-        /**
-         * Récupérer les messages
-         * de cette conversation.
+        /*
+         * Messages.
          */
         const conversationMessages =
           await getConversationMessages(
@@ -254,35 +208,20 @@ export default function ChatScreen() {
             currentId
           );
 
-
-        console.log(
-          "MESSAGES DE LA CONVERSATION :",
-          conversationMessages
-        );
-
-
         setMessages(
           conversationMessages
         );
 
-
-        /**
-         * Marquer les messages
-         * comme lus.
+        /*
+         * Marquer comme lu.
          */
         await markConversationAsRead(
           Number(id),
           currentId
         );
 
-
-        /**
-         * --------------------------------
-         * TROUVER L'AUTRE UTILISATEUR
-         * --------------------------------
-         *
-         * On utilise d'abord userId
-         * reçu depuis MessagesScreen.
+        /*
+         * Déterminer l'autre utilisateur.
          */
         let otherUserId:
           number | null =
@@ -290,17 +229,13 @@ export default function ChatScreen() {
             ? Number(userId)
             : null;
 
-
-        /**
-         * Si userId n'a pas été transmis,
-         * on utilise la conversation.
-         */
         if (
           !otherUserId
         ) {
 
           if (
-            Number(data.user1Id) ===
+            Number(data.user1Id)
+            ===
             currentId
           ) {
 
@@ -320,62 +255,39 @@ export default function ChatScreen() {
 
         }
 
-
-        console.log(
-          "AUTRE UTILISATEUR ID :",
-          otherUserId
-        );
-
-
-        /**
-         * Récupérer tous les utilisateurs
-         * pour trouver celui avec qui
-         * on discute.
+        /*
+         * Récupérer utilisateur.
          */
         const users =
           await getAllUsers();
 
-
         const foundUser =
           users.find(
             (user) =>
-              Number(user.id) ===
+              Number(user.id)
+              ===
               Number(otherUserId)
           );
 
-
-        if (foundUser) {
-
-          console.log(
-            "AUTRE UTILISATEUR :",
-            foundUser
-          );
-
+        if (
+          foundUser
+        ) {
 
           setOtherUser(
             foundUser
           );
 
-
-          /**
-           * Récupérer son image.
-           */
           if (
             foundUser.profileImage
           ) {
 
             try {
 
-              const image =
-                await getProfileImageUrl(
-                  foundUser.profileImage
-                );
+             const image = await getProfileImageUrl(
+            foundUser.profileImage
+          );
 
-
-              setOtherUserImage(
-                image
-              );
-
+          setOtherUserImage(image);
 
             } catch (
               error
@@ -392,32 +304,30 @@ export default function ChatScreen() {
 
         }
 
-
       } catch (
         error: any
       ) {
 
         console.error(
-          "Erreur récupération conversation :",
+          "Erreur conversation :",
           error?.response?.data ||
-            error
+          error
         );
-
 
       } finally {
 
-        setLoading(
-          false
-        );
+        setLoading(false);
 
       }
 
     };
 
-
-  /**
-   * Envoyer un message.
+  /*
+   * ================================
+   * ENVOYER
+   * ================================
    */
+
   const handleSend =
     async (
       text: string
@@ -433,17 +343,10 @@ export default function ChatScreen() {
 
       }
 
-
       try {
 
-        setSending(
-          true
-        );
+        setSending(true);
 
-
-        /**
-         * Envoyer au backend.
-         */
         const newMessage =
           await sendMessage(
             Number(
@@ -459,16 +362,9 @@ export default function ChatScreen() {
             null
           );
 
-
-        console.log(
-          "MESSAGE ENVOYÉ :",
-          newMessage
-        );
-
-
-        /**
-         * Ajouter le message
-         * dans la liste.
+        /*
+         * Ajouter immédiatement
+         * le nouveau message.
          */
         setMessages(
           (prev) => [
@@ -477,21 +373,16 @@ export default function ChatScreen() {
           ]
         );
 
-
-        /**
-         * Descendre automatiquement.
+        /*
+         * Scroll.
          */
         setTimeout(() => {
 
-          scrollRef.current?.scrollToEnd(
-            {
-              animated:
-                true,
-            }
-          );
+          scrollRef.current?.scrollToEnd({
+            animated: true,
+          });
 
-        }, 50);
-
+        }, 100);
 
       } catch (
         error: any
@@ -500,24 +391,23 @@ export default function ChatScreen() {
         console.error(
           "Erreur envoi message :",
           error?.response?.data ||
-            error
+          error
         );
-
 
       } finally {
 
-        setSending(
-          false
-        );
+        setSending(false);
 
       }
 
     };
 
-
-  /**
-   * Écran de chargement.
+  /*
+   * ================================
+   * LOADING
+   * ================================
    */
+
   if (loading) {
 
     return (
@@ -550,10 +440,12 @@ export default function ChatScreen() {
 
   }
 
-
-  /**
-   * Conversation inexistante.
+  /*
+   * ================================
+   * PAS DE CONVERSATION
+   * ================================
    */
+
   if (!conversation) {
 
     return (
@@ -578,6 +470,16 @@ export default function ChatScreen() {
 
   }
 
+  /*
+   * Nom à afficher.
+   */
+  const displayName =
+    userName ||
+    (
+      otherUser
+        ? `${otherUser.firstName} ${otherUser.lastName}`
+        : "Utilisateur"
+    );
 
   return (
 
@@ -585,15 +487,12 @@ export default function ChatScreen() {
       style={
         styles.safeArea
       }
-
       edges={[
         "top",
       ]}
     >
 
-      {/* ========================= */}
-      {/* HEADER                     */}
-      {/* ========================= */}
+      {/* HEADER */}
 
       <View
         style={
@@ -601,21 +500,18 @@ export default function ChatScreen() {
         }
       >
 
-        {/* RETOUR */}
-
         <TouchableOpacity
           onPress={() =>
             router.back()
           }
-
           style={
-            styles.iconBtn
+            styles.backButton
           }
         >
 
           <Ionicons
             name="chevron-back"
-            size={22}
+            size={24}
             color={
               Colors.textPrimary
             }
@@ -624,57 +520,30 @@ export default function ChatScreen() {
         </TouchableOpacity>
 
 
-        {/* PHOTO */}
-
         <Image
-          source={
-            otherUserImage || {
-              uri:
-                "https://i.pravatar.cc/150?img=68",
-            }
-          }
-
-          style={
-            styles.avatar
-          }
-        />
-
-
-        {/* NOM */}
-
+  source={
+    otherUserImage || {
+      uri: "https://i.pravatar.cc/150?img=68",
+    }
+  }
+  style={styles.avatar}
+/>
+       
         <View
-          style={{
-            flex: 1,
-          }}
+          style={
+            styles.headerInfo
+          }
         >
 
           <Text
             style={
               styles.name
             }
-          >
-
-            {userName ||
-              (
-                otherUser
-                  ? `${otherUser.firstName} ${otherUser.lastName}`
-                  : "Utilisateur"
-              )}
-
-          </Text>
-
-
-          <Text
-            style={
-              styles.status
+            numberOfLines={
+              1
             }
           >
-
-            {
-              otherUser?.email ||
-              ""
-            }
-
+            {displayName}
           </Text>
 
         </View>
@@ -682,21 +551,17 @@ export default function ChatScreen() {
       </View>
 
 
-      {/* ========================= */}
-      {/* CHAT                       */}
-      {/* ========================= */}
+      {/* CHAT */}
 
       <KeyboardAvoidingView
         style={{
           flex: 1,
         }}
-
         behavior={
           Platform.OS === "ios"
             ? "padding"
             : undefined
         }
-
         keyboardVerticalOffset={
           90
         }
@@ -706,23 +571,19 @@ export default function ChatScreen() {
           ref={
             scrollRef
           }
-
           contentContainerStyle={
             styles.messagesList
           }
-
           showsVerticalScrollIndicator={
             false
           }
+          onContentSizeChange={() => {
 
-          onContentSizeChange={() =>
-            scrollRef.current?.scrollToEnd(
-              {
-                animated:
-                  false,
-              }
-            )
-          }
+            scrollRef.current?.scrollToEnd({
+              animated: false,
+            });
+
+          }}
         >
 
           {messages.map(
@@ -734,11 +595,9 @@ export default function ChatScreen() {
                 key={
                   message.id
                 }
-
                 message={
                   message
                 }
-
                 currentUserId={
                   currentUserId!
                 }
@@ -750,8 +609,6 @@ export default function ChatScreen() {
         </ScrollView>
 
 
-        {/* CHAMP D'ENVOI */}
-
         <ChatInput
           onSend={
             handleSend
@@ -761,11 +618,8 @@ export default function ChatScreen() {
       </KeyboardAvoidingView>
 
     </SafeAreaView>
-
   );
-
 }
-
 
 const styles =
   StyleSheet.create({
@@ -777,40 +631,6 @@ const styles =
         Colors.background,
     },
 
-
-    loadingContainer: {
-      flex: 1,
-
-      alignItems:
-        "center",
-
-      justifyContent:
-        "center",
-    },
-
-
-    loadingText: {
-      ...Typography.body,
-
-      color:
-        Colors.textMuted,
-
-      marginTop:
-        Spacing.sm,
-    },
-
-
-    notFound: {
-      ...Typography.body,
-
-      color:
-        Colors.textSecondary,
-
-      padding:
-        Spacing.xl,
-    },
-
-
     header: {
       flexDirection:
         "row",
@@ -818,20 +638,25 @@ const styles =
       alignItems:
         "center",
 
-      gap:
-        Spacing.sm,
-
       paddingHorizontal:
         Layout.screenPadding,
 
       paddingBottom:
-        Spacing.md,
+        Spacing.sm,
+
+      gap:
+        Spacing.sm,
+
+      borderBottomWidth:
+        1,
+
+      borderBottomColor:
+        Colors.cardBorder,
     },
 
-
-    iconBtn: {
-      width: 30,
-      height: 30,
+    backButton: {
+      width: 36,
+      height: 36,
 
       alignItems:
         "center",
@@ -840,14 +665,19 @@ const styles =
         "center",
     },
 
-
     avatar: {
-      width: 38,
-      height: 38,
+      width: 42,
+      height: 42,
 
-      borderRadius: 19,
+      borderRadius: 21,
+
+      backgroundColor:
+        Colors.card,
     },
 
+    headerInfo: {
+      flex: 1,
+    },
 
     name: {
       ...Typography.bodyMedium,
@@ -859,21 +689,41 @@ const styles =
         "700",
     },
 
-
-    status: {
-      ...Typography.caption,
-
-      color:
-        Colors.textMuted,
-    },
-
-
     messagesList: {
       paddingHorizontal:
         Layout.screenPadding,
 
       paddingVertical:
         Spacing.md,
+
+      flexGrow: 1,
+    },
+
+    loadingContainer: {
+      flex: 1,
+
+      alignItems:
+        "center",
+
+      justifyContent:
+        "center",
+    },
+
+    loadingText: {
+      ...Typography.body,
+
+      color:
+        Colors.textMuted,
+    },
+
+    notFound: {
+      ...Typography.body,
+
+      color:
+        Colors.textSecondary,
+
+      padding:
+        Spacing.xl,
     },
 
   });

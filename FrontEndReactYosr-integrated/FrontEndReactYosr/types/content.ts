@@ -10,23 +10,18 @@ export interface BlogAuthor {
 
 export interface BlogComment {
   id: string;
-
   author: {
     name: string;
     role: string;
-    avatar: ImageURISource;
+    avatar: any;
   };
-
   text: string;
   time: string;
 }
 
 export interface BlogPoll {
   question: string;
-  options: {
-    label: string;
-    percent: number;
-  }[];
+  options: { label: string; percent: number }[];
   totalVotes: number;
 }
 
@@ -44,45 +39,61 @@ export interface BlogPost {
   comments: BlogComment[];
 }
 
-/**
- * Utilisateur utilisé dans les conversations.
- */
-export interface ChatUser {
-  name: string;
-  avatar: string;
-  online: boolean;
-}
+/* =========================
+   CHAT
+========================= */
 
-/**
- * Message reçu depuis le backend Spring Boot.
- *
- * Correspond à ChatMessageResponse.java
- */
 export interface ChatMessage {
-  id: number;
+  id: number | string;
 
-  conversationId: number;
+  conversationId?: number;
 
   senderId: number;
 
-  senderFirstName: string;
+  senderFirstName?: string;
 
-  senderLastName: string;
+  senderLastName?: string;
 
-  senderProfileImage?: string | null;
+  senderProfileImage?: string;
 
   contenu?: string | null;
 
   image?: string | null;
 
-  sentAt: string;
+  sentAt?: string | null;
 
-  isRead: boolean;
+  isRead?: boolean;
 }
+
+/* =========================
+   CONVERSATION
+========================= */
 
 export interface Conversation {
-  id: string;
-  user: ChatUser;
-  unread: number;
-  messages: ChatMessage[];
+  id: number;
+
+  user1Id?: number;
+
+  user2Id?: number;
 }
+
+export interface ConversationPreview {
+  conversationId: number;
+
+  otherUserId: number;
+
+  otherUserFirstName: string;
+
+  otherUserLastName: string;
+
+  otherUserProfileImage?: string | null;
+
+  lastMessage?: string | null;
+
+  lastMessageSenderId?: number | null;
+
+  lastMessageDate?: string | null;
+
+  unreadCount: number;
+}
+

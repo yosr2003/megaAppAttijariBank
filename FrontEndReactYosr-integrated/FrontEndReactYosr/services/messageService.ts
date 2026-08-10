@@ -1,9 +1,11 @@
+
 import { api } from "./api";
 import { getToken } from "../utils/storage";
 
-/**
- * Récupérer tous les messages d'une conversation.
- */
+/* =========================
+   RÉCUPÉRER LES MESSAGES
+========================= */
+
 export const getConversationMessages = async (
   conversationId: number,
   userId: number
@@ -25,9 +27,10 @@ export const getConversationMessages = async (
   return response.data;
 };
 
-/**
- * Envoyer un message dans une conversation.
- */
+/* =========================
+   ENVOYER UN MESSAGE
+========================= */
+
 export const sendMessage = async (
   conversationId: number,
   senderId: number,
@@ -54,10 +57,11 @@ export const sendMessage = async (
   return response.data;
 };
 
-/**
- * Marquer tous les messages reçus
- * d'une conversation comme lus.
- */
+/* =========================
+   MARQUER UNE CONVERSATION
+   COMME LUE
+========================= */
+
 export const markConversationAsRead = async (
   conversationId: number,
   userId: number
@@ -78,9 +82,11 @@ export const markConversationAsRead = async (
   );
 };
 
-/**
- * Marquer un seul message comme lu.
- */
+/* =========================
+   MARQUER UN MESSAGE
+   COMME LU
+========================= */
+
 export const markMessageAsRead = async (
   messageId: number,
   userId: number
@@ -101,9 +107,10 @@ export const markMessageAsRead = async (
   );
 };
 
-/**
- * Supprimer un message.
- */
+/* =========================
+   SUPPRIMER
+========================= */
+
 export const deleteMessage = async (
   messageId: number,
   userId: number
@@ -123,10 +130,10 @@ export const deleteMessage = async (
   );
 };
 
-/**
- * Compter tous les messages non lus
- * de l'utilisateur connecté.
- */
+/* =========================
+   NON LUS
+========================= */
+
 export const countUnreadMessages = async (
   userId: number
 ) => {
@@ -143,3 +150,4 @@ export const countUnreadMessages = async (
 
   return response.data;
 };
+
