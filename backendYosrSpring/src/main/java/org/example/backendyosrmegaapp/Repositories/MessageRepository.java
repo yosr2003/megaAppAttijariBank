@@ -3,6 +3,8 @@ package org.example.backendyosrmegaapp.Repositories;
 
 import org.example.backendyosrmegaapp.entities.Message;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 
@@ -33,4 +35,16 @@ public interface MessageRepository
             Long conversationId,
             Long senderId
     );
+
+
+    @Query("""
+    SELECT COUNT(DISTINCT m.conversation.id)
+    FROM Message m
+    JOIN ConversationParticipant cp
+        ON cp.conversation.id = m.conversation.id
+    WHERE m.isRead = false
+      AND m.sender.id <> :userId
+      AND cp.user.id = :userId
+""")
+    long countUnreadConversations(@Param("userId") Long userId);
 }

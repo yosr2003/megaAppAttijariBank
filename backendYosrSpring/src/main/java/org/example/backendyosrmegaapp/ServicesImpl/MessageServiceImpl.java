@@ -562,4 +562,8 @@ public class MessageServiceImpl implements MessageService {
 
                 .build();
     }
+@Override
+public long countUnreadConversations(Long userId) {
+        return messageRepository.countUnreadConversations(userId);
+    }
 }

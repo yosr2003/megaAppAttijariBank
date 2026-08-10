@@ -159,4 +159,11 @@ public class MessageController {
             return ResponseEntity.notFound().build();
         }
     }
+
+    @GetMapping("/unread-conversations/{userId}")
+    public long countUnreadConversations(
+            @PathVariable Long userId
+    ) {
+        return messageService.countUnreadConversations(userId);
+    }
 }

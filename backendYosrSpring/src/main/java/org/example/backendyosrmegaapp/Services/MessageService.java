@@ -45,4 +45,6 @@ public interface MessageService {
             Long messageId,
             Long userId
     );
+
+    long countUnreadConversations(Long userId);
 }

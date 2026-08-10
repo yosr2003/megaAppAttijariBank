@@ -1,7 +1,7 @@
-import React from "react";
+import React, { useCallback, useState } from "react";
 import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 
@@ -11,11 +11,53 @@ import { homeModules } from "../../data/homeModules";
 import { Colors, Gradients } from "../../constants/home/Colors";
 import { Typography } from "../../constants/home/Typography";
 import { Layout, Radius, Spacing } from "../../constants/home/Layout";
+import { countUnreadConversations } from "@/services/messageService";
+import { getUser } from "@/utils/storage";
 
 const LOGO = require("../../assets/images/logoSuperTounsi.jpg");
 
 export default function SuperTounsiHomeScreen() {
-  const unreadMessages = 3;
+
+const [unreadMessages, setUnreadMessages] =
+  useState(0);
+
+useFocusEffect(
+  useCallback(() => {
+
+    const loadUnreadConversations = async () => {
+
+      try {
+
+        const user = await getUser();
+
+        if (!user?.id) {
+          return;
+        }
+
+        const count =
+          await countUnreadConversations(
+            Number(user.id)
+          );
+
+        setUnreadMessages(count);
+
+      } catch (error) {
+
+        console.error(
+          "Erreur récupération conversations non lues :",
+          error
+        );
+
+        setUnreadMessages(0);
+      }
+
+    };
+
+    loadUnreadConversations();
+
+  }, [])
+);
+
 
   return (
     <SafeAreaView style={styles.safeArea} edges={["top"]}>
@@ -125,7 +167,7 @@ const styles = StyleSheet.create({
     minWidth: 18,
     height: 18,
     borderRadius: 9,
-    backgroundColor: Colors.brandPurple,
+    backgroundColor: "#FF3B30",
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 3,

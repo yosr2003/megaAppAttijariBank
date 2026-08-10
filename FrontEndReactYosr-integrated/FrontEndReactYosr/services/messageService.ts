@@ -183,3 +183,20 @@ export const countUnreadMessages = async (
   return response.data;
 };
 
+export const countUnreadConversations = async (
+  userId: number
+) => {
+  const token = await getToken();
+
+  const response = await api.get(
+    `/messages/unread-conversations/${userId}`,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
+
+  return Number(response.data);
+};
+

@@ -1,5 +1,5 @@
 import React, {
-  useEffect,
+  useCallback,
   useMemo,
   useState,
 } from "react";
@@ -21,6 +21,7 @@ import {
 
 import {
   router,
+  useFocusEffect,
 } from "expo-router";
 
 import {
@@ -66,13 +67,14 @@ import {
   ChatMessage,
 } from "../../../types/content";
 
+
 interface ConversationPreview {
   conversationId: number;
 
   // L'utilisateur avec qui on discute
   user: User;
 
-  // Photo de CET utilisateur
+  // Photo
   image: {
     uri: string;
     headers?: Record<string, string>;
@@ -80,28 +82,68 @@ interface ConversationPreview {
 
   // Dernier message
   lastMessage: ChatMessage | null;
+
+  // 🔴 Au moins un message non lu reçu
+  hasUnread: boolean;
 }
+
 
 export default function MessagesScreen() {
 
-  const [conversations, setConversations] =
-    useState<ConversationPreview[]>([]);
+  const [
+    conversations,
+    setConversations,
+  ] = useState<ConversationPreview[]>([]);
 
-  const [search, setSearch] =
-    useState("");
+  const [
+    search,
+    setSearch,
+  ] = useState("");
 
-  const [loading, setLoading] =
-    useState(true);
+  const [
+    loading,
+    setLoading,
+  ] = useState(true);
 
-  const [openingUserId, setOpeningUserId] =
-    useState<number | null>(null);
+  const [
+    openingUserId,
+    setOpeningUserId,
+  ] = useState<number | null>(null);
 
-  const [currentUser, setCurrentUser] =
-    useState<any>(null);
+  const [
+    currentUser,
+    setCurrentUser,
+  ] = useState<any>(null);
 
-  useEffect(() => {
-    loadConversations();
-  }, []);
+
+  /*
+   * ========================================
+   * RECHARGER À CHAQUE RETOUR SUR LA PAGE
+   * ========================================
+   *
+   * Quand on ouvre une conversation :
+   *
+   * MessagesScreen
+   *       ↓
+   * ChatScreen
+   *       ↓
+   * markConversationAsRead()
+   *       ↓
+   * retour MessagesScreen
+   *       ↓
+   * loadConversations()
+   *
+   * Le point rouge disparaît donc
+   * automatiquement.
+   */
+  useFocusEffect(
+    useCallback(() => {
+
+      loadConversations();
+
+    }, [])
+  );
+
 
   /**
    * ========================================
@@ -114,89 +156,144 @@ export default function MessagesScreen() {
 
       setLoading(true);
 
+
       /**
-       * Utilisateur connecté
+       * ====================================
+       * UTILISATEUR CONNECTÉ
+       * ====================================
        */
-      const loggedUser = await getUser();
+      const loggedUser =
+        await getUser();
 
       if (!loggedUser?.id) {
+
         throw new Error(
           "Utilisateur connecté introuvable"
         );
+
       }
 
-      setCurrentUser(loggedUser);
+      setCurrentUser(
+        loggedUser
+      );
+
 
       /**
-       * Tous les utilisateurs
+       * ====================================
+       * TOUS LES UTILISATEURS
+       * ====================================
        */
-      const allUsers = await getAllUsers();
+      const allUsers =
+        await getAllUsers();
+
 
       /**
        * On enlève l'utilisateur connecté.
        */
-      const otherUsers = allUsers.filter(
-        (user) =>
-          Number(user.id) !==
-          Number(loggedUser.id)
-      );
+      const otherUsers =
+        allUsers.filter(
+          (user) =>
+            Number(user.id) !==
+            Number(loggedUser.id)
+        );
 
-      const previews: ConversationPreview[] = [];
+
+      const previews:
+        ConversationPreview[] = [];
+
 
       /**
-       * Pour chaque utilisateur :
-       *
-       * utilisateur A = moi
-       * utilisateur B = autre utilisateur
-       *
-       * On récupère leur conversation privée.
+       * ====================================
+       * POUR CHAQUE UTILISATEUR
+       * ====================================
        */
-      for (const user of otherUsers) {
+      for (
+        const user of otherUsers
+      ) {
 
         try {
 
+          /**
+           * =================================
+           * RÉCUPÉRER / CRÉER CONVERSATION
+           * =================================
+           */
           const conversation =
             await createPrivateConversation(
               Number(loggedUser.id),
               Number(user.id)
             );
 
+
           if (!conversation?.id) {
             continue;
           }
 
+
           /**
-           * Messages de cette conversation
+           * =================================
+           * RÉCUPÉRER LES MESSAGES
+           * =================================
            */
-          const messages: ChatMessage[] =
+          const messages:
+            ChatMessage[] =
             await getConversationMessages(
               Number(conversation.id),
               Number(loggedUser.id)
             );
 
+
           /**
-           * Dernier message
+           * =================================
+           * DERNIER MESSAGE
+           * =================================
            */
           const lastMessage =
             messages.length > 0
-              ? messages[messages.length - 1]
+              ? messages[
+                  messages.length - 1
+                ]
               : null;
+
+
+          /**
+           * =================================
+           * 🔴 MESSAGES NON LUS
+           * =================================
+           *
+           * On considère uniquement les
+           * messages envoyés par L'AUTRE
+           * utilisateur.
+           *
+           * Nos propres messages ne doivent
+           * jamais afficher le point rouge.
+           */
+          const hasUnread =
+            messages.some(
+              (message) =>
+                Number(
+                  message.senderId
+                ) !==
+                  Number(
+                    loggedUser.id
+                  ) &&
+                message.isRead === false
+            );
+
 
           /**
            * ====================================
            * PHOTO DE L'AUTRE UTILISATEUR
            * ====================================
-           *
-           * IMPORTANT :
-           *
-           * Cette image appartient à `user`,
-           * c'est-à-dire à la personne avec
-           * qui on discute.
            */
           let image:
-            ConversationPreview["image"] = null;
+            ConversationPreview["image"] =
+            null;
 
-          if (user.profileImage) {
+
+          if (
+            user.profileImage
+          ) {
 
             try {
 
@@ -205,11 +302,17 @@ export default function MessagesScreen() {
                   user.profileImage
                 );
 
+
               if (profileImage) {
-                image = profileImage;
+
+                image =
+                  profileImage;
+
               }
 
-            } catch (imageError) {
+            } catch (
+              imageError
+            ) {
 
               console.log(
                 `Impossible de charger la photo de ${user.firstName}`,
@@ -217,23 +320,37 @@ export default function MessagesScreen() {
               );
 
             }
+
           }
 
+
           /**
-           * Ajouter la conversation
+           * ====================================
+           * AJOUTER LA CONVERSATION
+           * ====================================
            */
           previews.push({
+
             conversationId:
-              Number(conversation.id),
+              Number(
+                conversation.id
+              ),
 
             user,
 
             image,
 
             lastMessage,
+
+            // 🔴 IMPORTANT
+            hasUnread,
+
           });
 
-        } catch (conversationError) {
+
+        } catch (
+          conversationError
+        ) {
 
           console.log(
             `Impossible de charger la conversation avec ${user.firstName}`,
@@ -241,7 +358,9 @@ export default function MessagesScreen() {
           );
 
         }
+
       }
+
 
       /**
        * ====================================
@@ -254,50 +373,75 @@ export default function MessagesScreen() {
        * Puis :
        * plus récent → plus ancien
        */
-      previews.sort((a, b) => {
+      previews.sort(
+        (a, b) => {
 
-        if (
-          !a.lastMessage &&
-          !b.lastMessage
-        ) {
-          return 0;
+          if (
+            !a.lastMessage &&
+            !b.lastMessage
+          ) {
+
+            return 0;
+
+          }
+
+
+          if (
+            !a.lastMessage
+          ) {
+
+            return 1;
+
+          }
+
+
+          if (
+            !b.lastMessage
+          ) {
+
+            return -1;
+
+          }
+
+
+          return (
+            new Date(
+              b.lastMessage.sentAt || 0
+            ).getTime()
+            -
+            new Date(
+              a.lastMessage.sentAt || 0
+            ).getTime()
+          );
+
         }
+      );
 
-        if (!a.lastMessage) {
-          return 1;
-        }
 
-        if (!b.lastMessage) {
-          return -1;
-        }
+      setConversations(
+        previews
+      );
 
-        return (
-          new Date(
-            b.lastMessage.sentAt || 0
-          ).getTime()
-          -
-          new Date(
-            a.lastMessage.sentAt || 0
-          ).getTime()
-        );
-      });
 
-      setConversations(previews);
-
-    } catch (error: any) {
+    } catch (
+      error: any
+    ) {
 
       console.error(
         "Erreur chargement conversations :",
         error?.response?.data ||
-        error
+          error
       );
+
 
     } finally {
 
       setLoading(false);
 
     }
+
   };
+
 
   /**
    * ========================================
@@ -312,49 +456,78 @@ export default function MessagesScreen() {
       return "";
     }
 
-    const messageDate = new Date(date);
-    const now = new Date();
+
+    const messageDate =
+      new Date(date);
+
+    const now =
+      new Date();
+
 
     const diff =
       now.getTime() -
       messageDate.getTime();
 
-    const minute = 60 * 1000;
-    const hour = 60 * minute;
-    const day = 24 * hour;
+
+    const minute =
+      60 * 1000;
+
+    const hour =
+      60 * minute;
+
+    const day =
+      24 * hour;
+
 
     if (diff < minute) {
+
       return "à l'instant";
+
     }
+
 
     if (diff < hour) {
 
       const minutes =
-        Math.floor(diff / minute);
+        Math.floor(
+          diff / minute
+        );
 
       return `il y a ${minutes} min`;
+
     }
+
 
     if (diff < day) {
 
       const hours =
-        Math.floor(diff / hour);
+        Math.floor(
+          diff / hour
+        );
 
       return `il y a ${hours} h`;
+
     }
 
-    const yesterday = new Date();
+
+    const yesterday =
+      new Date();
+
 
     yesterday.setDate(
       yesterday.getDate() - 1
     );
 
+
     if (
       messageDate.toDateString() ===
       yesterday.toDateString()
     ) {
+
       return "hier";
+
     }
+
 
     return messageDate.toLocaleDateString(
       "fr-FR",
@@ -363,7 +536,9 @@ export default function MessagesScreen() {
         month: "2-digit",
       }
     );
+
   };
+
 
   /**
    * ========================================
@@ -374,39 +549,60 @@ export default function MessagesScreen() {
     preview: ConversationPreview
   ) => {
 
-    if (!preview.lastMessage) {
+    if (
+      !preview.lastMessage
+    ) {
+
       return "Aucun message";
+
     }
+
 
     const message =
       preview.lastMessage;
 
+
     const isMe =
-      Number(message.senderId) ===
-      Number(currentUser?.id);
+      Number(
+        message.senderId
+      ) ===
+      Number(
+        currentUser?.id
+      );
+
 
     /**
      * Message texte
      */
-    if (message.contenu) {
+    if (
+      message.contenu
+    ) {
 
       return isMe
         ? `Vous : ${message.contenu}`
         : `${preview.user.firstName} : ${message.contenu}`;
+
     }
+
 
     /**
      * Message image
      */
-    if (message.image) {
+    if (
+      message.image
+    ) {
 
       return isMe
         ? "Vous : 📷 Photo"
         : `${preview.user.firstName} : 📷 Photo`;
+
     }
 
+
     return "Message";
+
   };
+
 
   /**
    * ========================================
@@ -417,11 +613,17 @@ export default function MessagesScreen() {
     useMemo(() => {
 
       const query =
-        search.trim().toLowerCase();
+        search
+          .trim()
+          .toLowerCase();
+
 
       if (!query) {
+
         return conversations;
+
       }
+
 
       return conversations.filter(
         (conversation) => {
@@ -430,14 +632,23 @@ export default function MessagesScreen() {
             `${conversation.user.firstName} ${conversation.user.lastName}`
               .toLowerCase();
 
+
           const lastMessage =
-            conversation.lastMessage?.contenu
-              ?.toLowerCase() || "";
+            conversation.lastMessage
+              ?.contenu
+              ?.toLowerCase() ||
+            "";
+
 
           return (
-            fullName.includes(query) ||
-            lastMessage.includes(query)
+            fullName.includes(
+              query
+            ) ||
+            lastMessage.includes(
+              query
+            )
           );
+
         }
       );
 
@@ -445,6 +656,7 @@ export default function MessagesScreen() {
       conversations,
       search,
     ]);
+
 
   /**
    * ========================================
@@ -455,16 +667,24 @@ export default function MessagesScreen() {
     conversation: ConversationPreview
   ) => {
 
-    if (openingUserId !== null) {
+    if (
+      openingUserId !== null
+    ) {
+
       return;
+
     }
+
 
     setOpeningUserId(
       conversation.user.id
     );
 
+
     router.push({
-      pathname: "/messages/[id]",
+
+      pathname:
+        "/messages/[id]",
 
       params: {
 
@@ -488,84 +708,153 @@ export default function MessagesScreen() {
           String(
             conversation.user.id
           ),
+
       },
+
     });
 
+
     setTimeout(() => {
-      setOpeningUserId(null);
+
+      setOpeningUserId(
+        null
+      );
+
     }, 300);
+
   };
 
+
   return (
+
     <SafeAreaView
-      style={styles.safeArea}
-      edges={["top"]}
+      style={
+        styles.safeArea
+      }
+      edges={[
+        "top",
+      ]}
     >
 
-      {/* HEADER */}
+      {/* =========================
+          HEADER
+      ========================== */}
 
-      <View style={styles.header}>
+      <View
+        style={
+          styles.header
+        }
+      >
 
         <TouchableOpacity
-          onPress={() => router.back()}
-          style={styles.backButton}
+          onPress={() =>
+            router.back()
+          }
+          style={
+            styles.backButton
+          }
         >
 
           <Ionicons
             name="chevron-back"
             size={24}
-            color={Colors.textPrimary}
+            color={
+              Colors.textPrimary
+            }
           />
 
         </TouchableOpacity>
 
-        <Text style={styles.title}>
+
+        <Text
+          style={
+            styles.title
+          }
+        >
           Messages
         </Text>
 
-        <View style={styles.headerSpacer} />
+
+        <View
+          style={
+            styles.headerSpacer
+          }
+        />
 
       </View>
 
-      {/* RECHERCHE */}
 
-      <View style={styles.searchContainer}>
+      {/* =========================
+          RECHERCHE
+      ========================== */}
+
+      <View
+        style={
+          styles.searchContainer
+        }
+      >
 
         <Ionicons
           name="search"
           size={18}
-          color={Colors.textMuted}
+          color={
+            Colors.textMuted
+          }
         />
 
+
         <TextInput
-          style={styles.searchInput}
+          style={
+            styles.searchInput
+          }
           placeholder="Rechercher"
           placeholderTextColor={
             Colors.textMuted
           }
-          value={search}
-          onChangeText={setSearch}
+          value={
+            search
+          }
+          onChangeText={
+            setSearch
+          }
         />
 
       </View>
 
-      {/* LISTE */}
+
+      {/* =========================
+          LISTE
+      ========================== */}
 
       <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.list}
+        showsVerticalScrollIndicator={
+          false
+        }
+        contentContainerStyle={
+          styles.list
+        }
       >
 
         {loading ? (
 
-          <View style={styles.loading}>
+          <View
+            style={
+              styles.loading
+            }
+          >
 
             <ActivityIndicator
               size="large"
-              color={Colors.brandBlue}
+              color={
+                Colors.brandBlue
+              }
             />
 
-            <Text style={styles.loadingText}>
+            <Text
+              style={
+                styles.loadingText
+              }
+            >
               Chargement des conversations...
             </Text>
 
@@ -573,19 +862,33 @@ export default function MessagesScreen() {
 
         ) : filteredConversations.length === 0 ? (
 
-          <View style={styles.empty}>
+          <View
+            style={
+              styles.empty
+            }
+          >
 
             <Ionicons
               name="chatbubbles-outline"
               size={50}
-              color={Colors.textMuted}
+              color={
+                Colors.textMuted
+              }
             />
 
-            <Text style={styles.emptyTitle}>
+            <Text
+              style={
+                styles.emptyTitle
+              }
+            >
               Aucune conversation
             </Text>
 
-            <Text style={styles.emptyText}>
+            <Text
+              style={
+                styles.emptyText
+              }
+            >
               Commencez une nouvelle discussion.
             </Text>
 
@@ -599,12 +902,15 @@ export default function MessagesScreen() {
               const user =
                 conversation.user;
 
+
               const lastMessage =
                 conversation.lastMessage;
+
 
               const isOpening =
                 openingUserId ===
                 user.id;
+
 
               return (
 
@@ -626,9 +932,9 @@ export default function MessagesScreen() {
                   }
                 >
 
-                  {/* ===================== */}
-                  {/* PHOTO DE L'UTILISATEUR */}
-                  {/* ===================== */}
+                  {/* =====================
+                      PHOTO
+                  ====================== */}
 
                   <Image
                     source={
@@ -639,10 +945,15 @@ export default function MessagesScreen() {
                               "https://i.pravatar.cc/150?img=68",
                           }
                     }
-                    style={styles.avatar}
+                    style={
+                      styles.avatar
+                    }
                   />
 
-                  {/* CONTENU */}
+
+                  {/* =====================
+                      CONTENU
+                  ====================== */}
 
                   <View
                     style={
@@ -651,19 +962,32 @@ export default function MessagesScreen() {
                   >
 
                     <View
-                      style={styles.nameLine}
+                      style={
+                        styles.nameLine
+                      }
                     >
 
                       <Text
-                        style={styles.userName}
-                        numberOfLines={1}
+                        style={
+                          styles.userName
+                        }
+                        numberOfLines={
+                          1
+                        }
                       >
-                        {user.firstName}{" "}
-                        {user.lastName}
+                        {
+                          user.firstName
+                        }{" "}
+                        {
+                          user.lastName
+                        }
                       </Text>
 
+
                       <Text
-                        style={styles.date}
+                        style={
+                          styles.date
+                        }
                       >
                         {
                           formatConversationTime(
@@ -674,9 +998,17 @@ export default function MessagesScreen() {
 
                     </View>
 
+
                     <Text
-                      style={styles.lastMessage}
-                      numberOfLines={1}
+                      style={[
+                        styles.lastMessage,
+
+                        conversation.hasUnread &&
+                          styles.unreadLastMessage,
+                      ]}
+                      numberOfLines={
+                        1
+                      }
                     >
                       {
                         getLastMessageText(
@@ -687,18 +1019,39 @@ export default function MessagesScreen() {
 
                   </View>
 
+
+                  {/* =====================
+                      🔴 POINT NON LU
+                  ====================== */}
+
+                  {conversation.hasUnread && (
+                    <View
+                      style={
+                        styles.unreadDot
+                      }
+                    />
+                  )}
+
+
+                  {/* =====================
+                      CHARGEMENT
+                  ====================== */}
+
                   {isOpening && (
+
                     <ActivityIndicator
                       size="small"
                       color={
                         Colors.brandBlue
                       }
                     />
+
                   )}
 
                 </TouchableOpacity>
 
               );
+
             }
           )
 
@@ -707,163 +1060,326 @@ export default function MessagesScreen() {
       </ScrollView>
 
     </SafeAreaView>
+
   );
+
 }
 
-const styles = StyleSheet.create({
 
-  safeArea: {
-    flex: 1,
-    backgroundColor:
-      Colors.background,
-  },
+const styles =
+  StyleSheet.create({
 
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal:
-      Layout.screenPadding,
-    paddingBottom:
-      Spacing.sm,
-  },
+    safeArea: {
 
-  backButton: {
-    width: 38,
-    height: 38,
-    alignItems: "center",
-    justifyContent: "center",
-  },
+      flex: 1,
 
-  headerSpacer: {
-    width: 38,
-  },
+      backgroundColor:
+        Colors.background,
 
-  title: {
-    flex: 1,
-    textAlign: "center",
-    ...Typography.h2,
-    color: Colors.textPrimary,
-  },
+    },
 
-  searchContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginHorizontal:
-      Layout.screenPadding,
-    marginBottom:
-      Spacing.sm,
-    height: 42,
-    paddingHorizontal:
-      Spacing.md,
-    backgroundColor:
-      Colors.card,
-    borderRadius:
-      Radius.pill,
-    borderWidth: 1,
-    borderColor:
-      Colors.cardBorder,
-  },
 
-  searchInput: {
-    flex: 1,
-    marginLeft:
-      Spacing.sm,
-    color:
-      Colors.textPrimary,
-    ...Typography.body,
-  },
+    header: {
 
-  list: {
-    paddingHorizontal:
-      Layout.screenPadding,
-    paddingBottom:
-      Spacing.xl,
-  },
+      flexDirection:
+        "row",
 
-  conversationRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 10,
-    gap: Spacing.sm,
-  },
+      alignItems:
+        "center",
 
-  /**
-   * PHOTO DE L'AUTRE UTILISATEUR
-   */
-  avatar: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor:
-      Colors.card,
-  },
+      paddingHorizontal:
+        Layout.screenPadding,
 
-  conversationContent: {
-    flex: 1,
-    minWidth: 0,
-  },
+      paddingBottom:
+        Spacing.sm,
 
-  nameLine: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 3,
-  },
+    },
 
-  userName: {
-    flex: 1,
-    ...Typography.bodyMedium,
-    color:
-      Colors.textPrimary,
-    fontWeight: "700",
-    marginRight:
-      Spacing.sm,
-  },
 
-  date: {
-    ...Typography.caption,
-    color:
-      Colors.textMuted,
-  },
+    backButton: {
 
-  lastMessage: {
-    ...Typography.body,
-    color:
-      Colors.textMuted,
-  },
+      width: 38,
+      height: 38,
 
-  loading: {
-    alignItems: "center",
-    paddingTop:
-      Spacing.xl,
-  },
+      alignItems:
+        "center",
 
-  loadingText: {
-    ...Typography.body,
-    color:
-      Colors.textMuted,
-    marginTop:
-      Spacing.sm,
-  },
+      justifyContent:
+        "center",
 
-  empty: {
-    alignItems: "center",
-    paddingTop: 80,
-  },
+    },
 
-  emptyTitle: {
-    ...Typography.h3,
-    color:
-      Colors.textPrimary,
-    marginTop:
-      Spacing.md,
-  },
 
-  emptyText: {
-    ...Typography.body,
-    color:
-      Colors.textMuted,
-    marginTop:
-      Spacing.xs,
-  },
-});
+    headerSpacer: {
+
+      width: 38,
+
+    },
+
+
+    title: {
+
+      flex: 1,
+
+      textAlign:
+        "center",
+
+      ...Typography.h2,
+
+      color:
+        Colors.textPrimary,
+
+    },
+
+
+    searchContainer: {
+
+      flexDirection:
+        "row",
+
+      alignItems:
+        "center",
+
+      marginHorizontal:
+        Layout.screenPadding,
+
+      marginBottom:
+        Spacing.sm,
+
+      height: 42,
+
+      paddingHorizontal:
+        Spacing.md,
+
+      backgroundColor:
+        Colors.card,
+
+      borderRadius:
+        Radius.pill,
+
+      borderWidth: 1,
+
+      borderColor:
+        Colors.cardBorder,
+
+    },
+
+
+    searchInput: {
+
+      flex: 1,
+
+      marginLeft:
+        Spacing.sm,
+
+      color:
+        Colors.textPrimary,
+
+      ...Typography.body,
+
+    },
+
+
+    list: {
+
+      paddingHorizontal:
+        Layout.screenPadding,
+
+      paddingBottom:
+        Spacing.xl,
+
+    },
+
+
+    conversationRow: {
+
+      flexDirection:
+        "row",
+
+      alignItems:
+        "center",
+
+      paddingVertical:
+        10,
+
+      gap:
+        Spacing.sm,
+
+    },
+
+
+    /**
+     * PHOTO DE L'AUTRE UTILISATEUR
+     */
+    avatar: {
+
+      width: 56,
+
+      height: 56,
+
+      borderRadius: 28,
+
+      backgroundColor:
+        Colors.card,
+
+    },
+
+
+    conversationContent: {
+
+      flex: 1,
+
+      minWidth: 0,
+
+    },
+
+
+    nameLine: {
+
+      flexDirection:
+        "row",
+
+      alignItems:
+        "center",
+
+      justifyContent:
+        "space-between",
+
+      marginBottom:
+        3,
+
+    },
+
+
+    userName: {
+
+      flex: 1,
+
+      ...Typography.bodyMedium,
+
+      color:
+        Colors.textPrimary,
+
+      fontWeight:
+        "700",
+
+      marginRight:
+        Spacing.sm,
+
+    },
+
+
+    date: {
+
+      ...Typography.caption,
+
+      color:
+        Colors.textMuted,
+
+    },
+
+
+    lastMessage: {
+
+      ...Typography.body,
+
+      color:
+        Colors.textMuted,
+
+    },
+
+
+    /**
+     * 🔴 Dernier message non lu
+     */
+    unreadLastMessage: {
+
+      color:
+        Colors.textPrimary,
+
+      fontWeight:
+        "700",
+
+    },
+
+
+    /**
+     * 🔴 POINT ROUGE
+     */
+    unreadDot: {
+
+      width: 10,
+
+      height: 10,
+
+      borderRadius: 5,
+
+      backgroundColor:
+        "#FF3B30",
+
+      marginLeft: 4,
+
+    },
+
+
+    loading: {
+
+      alignItems:
+        "center",
+
+      paddingTop:
+        Spacing.xl,
+
+    },
+
+
+    loadingText: {
+
+      ...Typography.body,
+
+      color:
+        Colors.textMuted,
+
+      marginTop:
+        Spacing.sm,
+
+    },
+
+
+    empty: {
+
+      alignItems:
+        "center",
+
+      paddingTop: 80,
+
+    },
+
+
+    emptyTitle: {
+
+      ...Typography.h3,
+
+      color:
+        Colors.textPrimary,
+
+      marginTop:
+        Spacing.md,
+
+    },
+
+
+    emptyText: {
+
+      ...Typography.body,
+
+      color:
+        Colors.textMuted,
+
+      marginTop:
+        Spacing.xs,
+
+    },
+
+  });
+
