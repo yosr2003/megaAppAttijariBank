@@ -19,6 +19,32 @@ import { Goal3DBuilder } from '../components/goal-3d-builder';
 import { useGoalBlueprint } from '../hooks/use-goal-blueprint';
 
 
+
+// Check if a milestone was unlocked during this deposit
+const getUnlockedMilestone = (shape: string, start: number, end: number): string | null => {
+  if (end >= 1 && start < 1) {
+    return "Mabrouk! Objectif 100% Atteint ! 🎉";
+  }
+
+  if (shape === 'car') {
+    if (end >= 0.65 && start < 0.65) return "Mabrouk! Pare-brise & Cabine Déverrouillés ! 🚗";
+    if (end >= 0.40 && start < 0.40) return "Mabrouk! Phares & Carrosserie Déverrouillés ! 🚗";
+    if (end >= 0.15 && start < 0.15) return "Mabrouk! Châssis & Roues Déverrouillés ! 🚗";
+  } else if (shape === 'house') {
+    if (end >= 0.65 && start < 0.65) return "Mabrouk! Toit & Finitions Déverrouillés ! 🏠";
+    if (end >= 0.40 && start < 0.40) return "Mabrouk! Porte & Fenêtre Déverrouillés ! 🏠";
+  } else if (shape === 'phone') {
+    if (end >= 0.75 && start < 0.75) return "Mabrouk! Puce & Sparkles Déverrouillés ! 📱";
+    if (end >= 0.40 && start < 0.40) return "Mabrouk! Châssis & Écran Déverrouillés ! 📱";
+  } else {
+    // Fallback for default tower/vault
+    if (end >= 0.75 && start < 0.75) return "Mabrouk! Serrure & Poignée Déverrouillées ! 🔓";
+    if (end >= 0.40 && start < 0.40) return "Mabrouk! Structure & Coffre Déverrouillés ! 📦";
+  }
+
+  return null;
+};
+
 type Params = {
   goalId?: string;
   title?: string;
@@ -134,6 +160,8 @@ export function ProgressAnimationScreen() {
   const [displayProgress, setDisplayProgress] = useState(startProg);
   const [buildTrigger, setBuildTrigger] = useState(0);
   const [showConfetti, setShowConfetti] = useState(false);
+  const [isMilestoneModalVisible, setIsMilestoneModalVisible] = useState(false);
+  const [milestoneText, setMilestoneText] = useState<string | null>(null);
 
   const headingScale  = useSharedValue(0.6);
   const headingOpacity = useSharedValue(0);
@@ -155,6 +183,16 @@ export function ProgressAnimationScreen() {
       setShowConfetti(true);
 
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+      // Check for milestone unlocks
+      const milestone = getUnlockedMilestone(blueprint.shape ?? 'tower', startProg, targetProg);
+      if (milestone) {
+        setMilestoneText(milestone);
+        setTimeout(() => {
+          setIsMilestoneModalVisible(true);
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        }, 1500); // Popup after the building progress animation finishes
+      }
 
       if (isGoalComplete) {
         // Extra celebration haptics for goal completion
@@ -252,6 +290,82 @@ export function ProgressAnimationScreen() {
           onPress={() => router.back()}
         />
       </Animated.View>
+
+      {/* Milestone Unlock Modal celebration popup */}
+      <Modal visible={isMilestoneModalVisible} transparent animationType="fade" onRequestClose={() => setIsMilestoneModalVisible(false)}>
+        <View style={{
+          flex: 1,
+          backgroundColor: 'rgba(3, 12, 22, 0.9)',
+          justifyContent: 'center',
+          alignItems: 'center',
+          padding: 24
+        }}>
+          {/* Confetti effect inside modal */}
+          <View style={StyleSheet.absoluteFillObject} pointerEvents="none">
+            {CONFETTI_PIECES.slice(0, 8).map((p, i) => (
+              <FallingPiece key={i} emoji={p.emoji} x={p.x} delay={i * 120} />
+            ))}
+          </View>
+
+          <Animated.View style={{
+            backgroundColor: theme.colors.surface,
+            borderColor: '#ECC863',
+            borderWidth: 2,
+            borderRadius: 24,
+            padding: 30,
+            alignItems: 'center',
+            width: '90%',
+            maxWidth: 350,
+            gap: 16,
+            shadowColor: '#ECC863',
+            shadowOffset: { width: 0, height: 12 },
+            shadowOpacity: 0.35,
+            shadowRadius: 24,
+            elevation: 12
+          }}>
+            <Text style={{ fontSize: 56 }}>🏆</Text>
+            
+            <View style={{ backgroundColor: 'rgba(236, 200, 99, 0.15)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8 }}>
+              <Text style={{ fontSize: 11, fontWeight: '800', color: '#ECC863', letterSpacing: 1 }}>PALIER DÉBLOQUÉ</Text>
+            </View>
+
+            <Text style={{
+              fontSize: 18,
+              fontWeight: '900',
+              textAlign: 'center',
+              color: theme.colors.textPrimary,
+              lineHeight: 26,
+              marginTop: 4
+            }}>
+              {milestoneText}
+            </Text>
+
+            <Text style={{
+              fontSize: 13,
+              textAlign: 'center',
+              color: theme.colors.textSecondary,
+              lineHeight: 20
+            }}>
+              Votre effort quotidien porte ses fruits. Continuez à alimenter votre projet ! 🚀
+            </Text>
+
+            <Pressable 
+              style={{
+                backgroundColor: theme.colors.primary,
+                paddingHorizontal: 24,
+                paddingVertical: 12,
+                borderRadius: 16,
+                marginTop: 10,
+                width: '100%',
+                alignItems: 'center'
+              }}
+              onPress={() => setIsMilestoneModalVisible(false)}
+            >
+              <Text style={{ color: theme.colors.primaryOn, fontWeight: '800', fontSize: 14 }}>Super ! Behi ياسر</Text>
+            </Pressable>
+          </Animated.View>
+        </View>
+      </Modal>
     </Screen>
   );
 }
