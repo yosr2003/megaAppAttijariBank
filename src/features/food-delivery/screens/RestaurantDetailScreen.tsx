@@ -1,6 +1,7 @@
 import { GlassCard, Screen, SectionTitle } from "@/src/components/ui";
 import { useTheme } from "@/src/hooks/use-theme";
 import { useFoodCartStore } from "@/src/store/food-cart-store";
+import { useFavoritesStore } from "@/src/store/favorites-store";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useState, useMemo } from "react";
@@ -24,6 +25,7 @@ export function RestaurantDetailScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const theme = useTheme();
+  const { toggleFoodFavorite, isFoodFavorited } = useFavoritesStore();
   const { addItem, getItemCount, getTotal } = useFoodCartStore();
   
   const [quantities, setQuantities] = useState<Record<string, number>>({});
@@ -319,9 +321,33 @@ export function RestaurantDetailScreen() {
                           <Text style={styles.popularText}>🔥 Populaires</Text>
                         </View>
                       )}
-                      <Text style={[styles.itemName, { color: theme.colors.textPrimary }]}>
-                        {item.name}
-                      </Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: '92%' }}>
+                        <Text style={[styles.itemName, { color: theme.colors.textPrimary, flex: 1 }]}>
+                          {item.name}
+                        </Text>
+                        <Pressable 
+                          style={{ padding: 6, marginLeft: 8 }}
+                          onPress={() => {
+                            toggleFoodFavorite({
+                              id: item.id,
+                              name: item.name,
+                              price: item.price,
+                              description: item.description,
+                              image: item.image,
+                              restaurantId: restaurantId,
+                              restaurantName: restaurant?.name,
+                              deliveryFee: restaurant?.deliveryFee,
+                              minOrder: restaurant?.minOrder
+                            });
+                          }}
+                        >
+                          <Ionicons 
+                            name={isFoodFavorited(item.id) ? "heart" : "heart-outline"} 
+                            size={20} 
+                            color={isFoodFavorited(item.id) ? "#FF5353" : theme.colors.textSecondary} 
+                          />
+                        </Pressable>
+                      </View>
                       <Text style={[styles.itemDescription, { color: theme.colors.textSecondary }]}>
                         {item.description}
                       </Text>

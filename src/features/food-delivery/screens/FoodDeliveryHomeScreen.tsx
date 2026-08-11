@@ -5,6 +5,7 @@ import {
     SectionTitle,
 } from "@/src/components/ui";
 import { useTheme } from "@/src/hooks/use-theme";
+import { FavoritesModal } from "@/src/components/ui/FavoritesModal";
 import { useFoodCartStore } from "@/src/store/food-cart-store";
 import { useFoodPromoStore } from "@/src/store/food-promo-store";
 import { Ionicons } from "@expo/vector-icons";
@@ -34,6 +35,7 @@ import { AddressPickerModal } from "../components/AddressPickerModal";
 export function FoodDeliveryHomeScreen() {
   const router = useRouter();
   const theme = useTheme();
+  const [isFavoritesVisible, setIsFavoritesVisible] = useState(false);
   const { getItemCount } = useFoodCartStore();
   
   // Promo and coupon store integration
@@ -221,6 +223,25 @@ export function FoodDeliveryHomeScreen() {
                 name="receipt-outline"
                 size={22}
                 color="#FFC244"
+              />
+            </Pressable>
+
+            {/* Favorites Button */}
+            <Pressable
+              style={[
+                styles.iconButton,
+                {
+                  backgroundColor: theme.colors.surface,
+                  borderColor: theme.colors.border,
+                  marginRight: 8,
+                },
+              ]}
+              onPress={() => setIsFavoritesVisible(true)}
+            >
+              <Ionicons
+                name="heart-outline"
+                size={24}
+                color="#FF5353"
               />
             </Pressable>
 

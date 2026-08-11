@@ -10,6 +10,8 @@ import { useIsFocused } from '@react-navigation/native';
 import { StarField, Card } from '@/src/components/ui';
 import { useDb } from '@/src/hooks/use-db';
 import { useTheme } from '@/src/hooks/use-theme';
+import { FavoritesModal } from '@/src/components/ui/FavoritesModal';
+import { useFavoritesStore } from '@/src/store/favorites-store';
 import { useFormValidation } from '@/src/hooks/use-form-validation';
 import { dbService, P2PProduct, P2PFavorite, WalletCard } from '@/src/services/db-service';
 import { format, V } from '@/src/utils/form-validation';
@@ -24,6 +26,8 @@ const LOCATIONS = ['Tunis, La Marsa', 'Sousse, Kantaoui', 'Sfax, Ville', 'Djerba
 export function P2PMarketplaceScreen() {
   const isFocused = useIsFocused();
   const theme = useTheme();
+  const [isFavoritesVisible, setIsFavoritesVisible] = useState(false);
+  const { toggleP2PFavorite, isP2PFavorited } = useFavoritesStore();
   const { userId, isReady } = useDb();
   const { errors, validate, clearError, clearAll } = useFormValidation();
 
@@ -566,6 +570,14 @@ export function P2PMarketplaceScreen() {
         </View>
 
         <View style={styles.headerActions}>
+          <Pressable 
+            style={[styles.actionBtn, { marginRight: 8, backgroundColor: 'rgba(255, 83, 83, 0.15)', borderColor: 'rgba(255, 83, 83, 0.3)' }]} 
+            onPress={() => setIsFavoritesVisible(true)}
+          >
+            <Ionicons name="heart" size={16} color="#FF5353" />
+            <Text style={[styles.actionBtnText, { color: '#FF5353' }]}>Favoris</Text>
+          </Pressable>
+
           <Pressable style={styles.actionBtn} onPress={() => setIsSellModalVisible(true)}>
             <Ionicons name="add-circle-outline" size={20} color="#F7FAFF" />
             <Text style={styles.actionBtnText}>Vendre</Text>
@@ -664,11 +676,11 @@ export function P2PMarketplaceScreen() {
               </Pressable>
 
               {/* Favorite Toggle button */}
-              <Pressable style={styles.favBtn} onPress={() => toggleFavorite(item)}>
+              <Pressable style={styles.favBtn} onPress={() => toggleP2PFavorite(item)}>
                 <Ionicons 
-                  name={isFavorited(item.id!) ? "heart" : "heart-outline"} 
+                  name={isP2PFavorited(item.id!) ? "heart" : "heart-outline"} 
                   size={16} 
-                  color={isFavorited(item.id!) ? "#FF5353" : "#F7FAFF"} 
+                  color={isP2PFavorited(item.id!) ? "#FF5353" : "#F7FAFF"} 
                 />
               </Pressable>
             </View>
@@ -935,11 +947,11 @@ export function P2PMarketplaceScreen() {
                   <Text style={styles.detailPrice}>{Number(selectedProduct.price).toFixed(3)} TND</Text>
                   
                   <View style={styles.detailActionsRow}>
-                    <Pressable style={styles.detailActionBtn} onPress={() => toggleFavorite(selectedProduct)}>
+                    <Pressable style={styles.detailActionBtn} onPress={() => toggleP2PFavorite(selectedProduct)}>
                       <Ionicons 
-                        name={isFavorited(selectedProduct.id!) ? "heart" : "heart-outline"} 
+                        name={isP2PFavorited(selectedProduct.id!) ? "heart" : "heart-outline"} 
                         size={20} 
-                        color={isFavorited(selectedProduct.id!) ? "#FF5353" : "#F7FAFF"} 
+                        color={isP2PFavorited(selectedProduct.id!) ? "#FF5353" : "#F7FAFF"} 
                       />
                     </Pressable>
 
@@ -1309,6 +1321,17 @@ export function P2PMarketplaceScreen() {
         onSaveAddress={(savedAddress) => {
           setSellLocation(`${savedAddress.address}|${savedAddress.latitude}|${savedAddress.longitude}`);
           setIsMapVisible(false);
+        }}
+      />
+
+      {/* FavoritesModal */}
+      <FavoritesModal 
+        visible={isFavoritesVisible} 
+        onClose={() => setIsFavoritesVisible(false)}
+        onSelectProduct={(prod) => {
+          setSelectedProduct(prod);
+          setIsFavoritesVisible(false);
+          setIsDetailModalVisible(true);
         }}
       />
 

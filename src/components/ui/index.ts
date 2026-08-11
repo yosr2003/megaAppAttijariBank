@@ -40,3 +40,5 @@ export { TransactionRow } from './transaction-row';
 export type { TransactionRowProps } from './transaction-row';
 export { WalletCard } from './wallet-card';
 export type { WalletCardProps } from './wallet-card';
+export { FavoritesModal } from './FavoritesModal';
+
