@@ -27,6 +27,8 @@ import { Typography } from "../../../constants/home/Typography";
 import { getUser } from "../../../utils/storage";
 import { deletePost, getProfileImageUrl } from "../../../services/postService";
 import { getAllPosts, createPost ,getPostById} from "../../../services/postService";
+import { localizeImage } from "@/services/geoclipService";
+
 
 const TRENDING = [
   "#SuperTounsi",
@@ -51,7 +53,17 @@ export default function BlogScreen() {
   const [content, setContent] = useState("");
   const [image, setImage] = useState<string | null>(null);
   const [posting, setPosting] = useState(false);
+  const [imageLocation, setImageLocation] = useState<string | null>(null);
 
+const [locationLoading, setLocationLoading] = useState(false);
+
+const [locationData, setLocationData] = useState<{
+  latitude: number;
+  longitude: number;
+  city: string;
+  country: string;
+  address: string;
+} | null>(null);
   /**
    * Chargement de l'utilisateur connecté
    */
@@ -175,8 +187,10 @@ useFocusEffect(
     return alnumCount >= 2;
   };
 
-  const pickImage = async () => {
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+ const pickImage = async () => {
+  try {
+    const permission =
+      await ImagePicker.requestMediaLibraryPermissionsAsync();
 
     if (!permission.granted) {
       Alert.alert(
@@ -186,15 +200,87 @@ useFocusEffect(
       return;
     }
 
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      quality: 0.7,
-    });
+    const result =
+      await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        quality: 0.7,
+      });
 
-    if (!result.canceled && result.assets && result.assets.length > 0) {
-      setImage(result.assets[0].uri);
+    if (
+      result.canceled ||
+      !result.assets ||
+      result.assets.length === 0
+    ) {
+      return;
     }
-  };
+
+    const selectedAsset = result.assets[0];
+
+    const selectedImage = selectedAsset.uri;
+
+    // Afficher immédiatement l'image sélectionnée
+    setImage(selectedImage);
+
+    // Reset ancienne localisation
+    setImageLocation(null);
+    setLocationData(null);
+
+    // Lancement GeoCLIP
+    setLocationLoading(true);
+
+    console.log(
+      "========== GEOCLIP =========="
+    );
+
+    console.log(
+      "Image envoyée :",
+      selectedImage
+    );
+
+    const localization =
+      await localizeImage(
+        selectedImage,
+        selectedAsset.fileName || "image.jpg",
+        selectedAsset.mimeType || "image/jpeg"
+      );
+
+    console.log(
+      "Résultat GeoCLIP :",
+      localization
+    );
+
+    setLocationData(localization);
+
+    // Affichage court dans le badge
+    const locationText =
+      localization.city &&
+      localization.country
+        ? `${localization.city}, ${localization.country}`
+        : localization.city ||
+          localization.country ||
+          localization.address ||
+          "Emplacement détecté";
+
+    setImageLocation(locationText);
+
+  } catch (error: any) {
+    console.error(
+      "Erreur GeoCLIP :",
+      error
+    );
+
+    setImageLocation(null);
+    setLocationData(null);
+
+    Alert.alert(
+      "Localisation impossible",
+      "Impossible de déterminer l'emplacement de cette image."
+    );
+
+  } finally {
+    setLocationLoading(false);
+  }
+};
 
 
 const handlePost = async () => {
@@ -462,17 +548,68 @@ const handleDeletePost = async (
 
         {/* Badge discret quand une image est attachée — pas de preview encombrante */}
         {image && (
-          <View style={styles.imageBadge}>
-            <Ionicons name="image" size={13} color={Colors.brandBlue} />
-            <Text style={styles.imageBadgeText}>Image ajoutée</Text>
-            <TouchableOpacity
-              onPress={() => setImage(null)}
-              hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-            >
-              <Ionicons name="close-circle" size={15} color={Colors.brandBlue} />
-            </TouchableOpacity>
-          </View>
-        )}
+  <View style={styles.imageBadge}>
+    <Ionicons
+      name="image"
+      size={13}
+      color={Colors.brandBlue}
+    />
+
+    <Text style={styles.imageBadgeText}>
+      Image ajoutée
+    </Text>
+
+  <View style={styles.locationBadge}>
+  {locationLoading ? (
+    <>
+      <ActivityIndicator
+        size="small"
+        color={Colors.brandPurple}
+      />
+
+      <Text style={styles.locationBadgeText}>
+        Analyse de l'image...
+      </Text>
+    </>
+  ) : (
+    <>
+      <Ionicons
+        name="location"
+        size={13}
+        color={Colors.brandPurple}
+      />
+
+      <Text
+        style={styles.locationBadgeText}
+        numberOfLines={1}
+      >
+        {imageLocation || "Emplacement non détecté"}
+      </Text>
+    </>
+  )}
+</View>
+
+ <TouchableOpacity
+      onPress={() => {
+        setImage(null);
+        setImageLocation(null);
+        setLocationData(null);
+      }}
+      hitSlop={{
+        top: 6,
+        bottom: 6,
+        left: 6,
+        right: 6,
+      }}
+    >
+      <Ionicons
+        name="close-circle"
+        size={15}
+        color={Colors.brandBlue}
+      />
+    </TouchableOpacity>
+  </View>
+)}
 
         {/* TRENDING */}
         <ScrollView
@@ -786,4 +923,16 @@ const styles = StyleSheet.create({
     color: Colors.textMuted,
     marginTop: Spacing.sm,
   },
+  locationBadge: {
+  flexDirection: "row",
+  alignItems: "center",
+  gap: 3,
+  marginLeft: 2,
+},
+
+locationBadgeText: {
+  ...Typography.caption,
+  color: Colors.brandPurple,
+  fontWeight: "600",
+},
 });
