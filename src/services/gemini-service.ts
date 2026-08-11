@@ -188,7 +188,7 @@ export function localBlueprintDefaults(title: string, shape: GoalShape): Omit<Go
       blockFront: '#2F6FCC',
       label: 'Voyage',
       buildCaption: 'Assemblage de votre prochain départ…',
-      milestoneLow: 'Mabrouk! Billet d'avion débloqué ! ✈️',
+      milestoneLow: "Mabrouk! Billet d'avion débloqué ! ✈️",
       milestoneMid: 'Mabrouk! Hôtel & Bagages débloqués ! 🏨',
       milestoneHigh: 'Mabrouk! Activités & Guide débloqués ! 🗺️',
     },
