@@ -26,5 +26,8 @@ export interface GoalBlueprint {
   blockFront: string;
   label: string;
   buildCaption: string;
+  milestoneLow?: string;
+  milestoneMid?: string;
+  milestoneHigh?: string;
   source: 'gemini' | 'local';
 }

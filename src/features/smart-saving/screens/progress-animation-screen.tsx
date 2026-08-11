@@ -21,26 +21,18 @@ import { useGoalBlueprint } from '../hooks/use-goal-blueprint';
 
 
 // Check if a milestone was unlocked during this deposit
-const getUnlockedMilestone = (shape: string, start: number, end: number): string | null => {
+const getUnlockedMilestone = (blueprint: any, start: number, end: number): string | null => {
   if (end >= 1 && start < 1) {
     return "Mabrouk! Objectif 100% Atteint ! 🎉";
   }
 
-  if (shape === 'car') {
-    if (end >= 0.65 && start < 0.65) return "Mabrouk! Pare-brise & Cabine Déverrouillés ! 🚗";
-    if (end >= 0.40 && start < 0.40) return "Mabrouk! Phares & Carrosserie Déverrouillés ! 🚗";
-    if (end >= 0.15 && start < 0.15) return "Mabrouk! Châssis & Roues Déverrouillés ! 🚗";
-  } else if (shape === 'house') {
-    if (end >= 0.65 && start < 0.65) return "Mabrouk! Toit & Finitions Déverrouillés ! 🏠";
-    if (end >= 0.40 && start < 0.40) return "Mabrouk! Porte & Fenêtre Déverrouillés ! 🏠";
-  } else if (shape === 'phone') {
-    if (end >= 0.75 && start < 0.75) return "Mabrouk! Puce & Sparkles Déverrouillés ! 📱";
-    if (end >= 0.40 && start < 0.40) return "Mabrouk! Châssis & Écran Déverrouillés ! 📱";
-  } else {
-    // Fallback for default tower/vault
-    if (end >= 0.75 && start < 0.75) return "Mabrouk! Serrure & Poignée Déverrouillées ! 🔓";
-    if (end >= 0.40 && start < 0.40) return "Mabrouk! Structure & Coffre Déverrouillés ! 📦";
-  }
+  const low = blueprint?.milestoneLow || "Mabrouk! Premier palier débloqué ! 🚀";
+  const mid = blueprint?.milestoneMid || "Mabrouk! Deuxième palier débloqué ! 🚀";
+  const high = blueprint?.milestoneHigh || "Mabrouk! Dernier palier débloqué ! 🚀";
+
+  if (end >= 0.65 && start < 0.65) return high;
+  if (end >= 0.40 && start < 0.40) return mid;
+  if (end >= 0.15 && start < 0.15) return low;
 
   return null;
 };
@@ -185,7 +177,7 @@ export function ProgressAnimationScreen() {
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
       // Check for milestone unlocks
-      const milestone = getUnlockedMilestone(blueprint.shape ?? 'tower', startProg, targetProg);
+      const milestone = getUnlockedMilestone(blueprint, startProg, targetProg);
       if (milestone) {
         setMilestoneText(milestone);
         setTimeout(() => {

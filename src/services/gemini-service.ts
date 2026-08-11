@@ -106,13 +106,16 @@ Return ONLY valid JSON (no markdown) with this exact schema:
   "blockSide": "#RRGGBB darker side face",
   "blockFront": "#RRGGBB medium front face",
   "label": "short French label max 24 chars",
-  "buildCaption": "short French phrase describing what is being built, max 60 chars"
+  "buildCaption": "short French phrase describing what is being built, max 60 chars",
+  "milestoneLow": "Tunisian or French congratulatory phrase when 15% is reached (e.g. Mabrouk! Châssis & Roues débloqués for a car, Fondations prêtes for a house, etc.)",
+  "milestoneMid": "Tunisian or French congratulatory phrase when 40% is reached (e.g. Mabrouk! Carrosserie débloquée for a car, Murs construits for a house, etc.)",
+  "milestoneHigh": "Tunisian or French congratulatory phrase when 65% is reached (e.g. Mabrouk! Pare-brise & Portes débloqués for a car, Toit & Finitions débloqués for a house, etc.)"
 }
 
 Rules:
 - shape MUST match the goal (travel→plane, house→house, car→car, phone→phone, laptop/pc→laptop, wedding→wedding, studies→education, health→gift or rocket, default→tower)
 - colors must harmonize with the goal theme
-- respond in French for label and buildCaption`;
+- respond in French/Tunisian dialect for labels, captions, and milestones`;
 
   try {
     let response: Response;
@@ -160,6 +163,9 @@ Rules:
       blockFront: sanitizeColor(parsed.blockFront, defaults.blockFront),
       label: (parsed.label ?? defaults.label).slice(0, 24),
       buildCaption: (parsed.buildCaption ?? defaults.buildCaption).slice(0, 60),
+      milestoneLow: parsed.milestoneLow ?? defaults.milestoneLow,
+      milestoneMid: parsed.milestoneMid ?? defaults.milestoneMid,
+      milestoneHigh: parsed.milestoneHigh ?? defaults.milestoneHigh,
       source: 'gemini',
     };
   } catch (error) {
@@ -182,6 +188,9 @@ export function localBlueprintDefaults(title: string, shape: GoalShape): Omit<Go
       blockFront: '#2F6FCC',
       label: 'Voyage',
       buildCaption: 'Assemblage de votre prochain départ…',
+      milestoneLow: 'Mabrouk! Billet d'avion débloqué ! ✈️',
+      milestoneMid: 'Mabrouk! Hôtel & Bagages débloqués ! 🏨',
+      milestoneHigh: 'Mabrouk! Activités & Guide débloqués ! 🗺️',
     },
     house: {
       shape: 'house',
@@ -192,6 +201,9 @@ export function localBlueprintDefaults(title: string, shape: GoalShape): Omit<Go
       blockFront: '#C9A84A',
       label: 'Maison',
       buildCaption: 'Fondations, murs, puis toit…',
+      milestoneLow: 'Mabrouk! Fondations & Dalle prêtes ! 🏗️',
+      milestoneMid: 'Mabrouk! Murs & Cloisons construits ! 🏠',
+      milestoneHigh: 'Mabrouk! Toiture & Finitions débloquées ! 🔑',
     },
     car: {
       shape: 'car',
@@ -202,6 +214,9 @@ export function localBlueprintDefaults(title: string, shape: GoalShape): Omit<Go
       blockFront: '#0FA864',
       label: 'Véhicule',
       buildCaption: 'Châssis, carrosserie, habitacle…',
+      milestoneLow: 'Mabrouk! Châssis & Roues débloqués ! 🚗',
+      milestoneMid: 'Mabrouk! Moteur & Direction débloqués ! ⚙️',
+      milestoneHigh: 'Mabrouk! Carrosserie & Habitacle prêts ! 🏁',
     },
     phone: {
       shape: 'phone',
@@ -212,6 +227,9 @@ export function localBlueprintDefaults(title: string, shape: GoalShape): Omit<Go
       blockFront: '#8B5CF6',
       label: 'Smartphone',
       buildCaption: 'Montage couche par couche…',
+      milestoneLow: 'Mabrouk! Batterie & Processeur débloqués ! 🔋',
+      milestoneMid: 'Mabrouk! Écran OLED & Châssis montés ! 📱',
+      milestoneHigh: 'Mabrouk! Caméra & Capteurs configurés ! 📸',
     },
     laptop: {
       shape: 'laptop',
@@ -222,6 +240,9 @@ export function localBlueprintDefaults(title: string, shape: GoalShape): Omit<Go
       blockFront: '#0EA5E9',
       label: 'Ordinateur',
       buildCaption: 'Base, écran, finitions…',
+      milestoneLow: 'Mabrouk! Carte mère & RAM débloquées ! 💾',
+      milestoneMid: 'Mabrouk! Boîtier & Clavier débloqués ! ⌨️',
+      milestoneHigh: 'Mabrouk! Écran & Carte graphique montés ! 🎮',
     },
     gift: {
       shape: 'gift',
@@ -232,6 +253,9 @@ export function localBlueprintDefaults(title: string, shape: GoalShape): Omit<Go
       blockFront: '#E84D6F',
       label: 'Cadeau',
       buildCaption: 'Votre surprise prend forme…',
+      milestoneLow: 'Mabrouk! Boîte de surprise débloquée ! 🎁',
+      milestoneMid: 'Mabrouk! Cadeau principal débloqué ! 🎀',
+      milestoneHigh: 'Mabrouk! Ruban & Carte de voeux prêts ! 🌸',
     },
     education: {
       shape: 'education',
@@ -242,6 +266,9 @@ export function localBlueprintDefaults(title: string, shape: GoalShape): Omit<Go
       blockFront: '#4F46E5',
       label: 'Études',
       buildCaption: 'Construction de votre avenir…',
+      milestoneLow: 'Mabrouk! Inscription & Dossier payés ! 📝',
+      milestoneMid: 'Mabrouk! Livres & Matériel financés ! 📚',
+      milestoneHigh: 'Mabrouk! Hébergement & Vie étudiante prêts ! 🎓',
     },
     wedding: {
       shape: 'wedding',
@@ -252,6 +279,9 @@ export function localBlueprintDefaults(title: string, shape: GoalShape): Omit<Go
       blockFront: '#EC4899',
       label: 'Mariage',
       buildCaption: 'Un projet de cœur en construction…',
+      milestoneLow: 'Mabrouk! Alliances & Fiançailles débloquées ! 💍',
+      milestoneMid: 'Mabrouk! Salle de fête & Traiteur réservés ! 🏰',
+      milestoneHigh: 'Mabrouk! Robe & Costume ajustés ! 👗',
     },
     rocket: {
       shape: 'rocket',
@@ -262,6 +292,9 @@ export function localBlueprintDefaults(title: string, shape: GoalShape): Omit<Go
       blockFront: '#2563B8',
       label: 'Ambition',
       buildCaption: 'Décollage en préparation…',
+      milestoneLow: 'Mabrouk! Propulseurs & Réservoir pleins ! 🚀',
+      milestoneMid: 'Mabrouk! Module de pilotage activé ! 🛰️',
+      milestoneHigh: 'Mabrouk! Compte à rebours lancé ! 📡',
     },
     tower: {
       shape: 'tower',
@@ -272,6 +305,9 @@ export function localBlueprintDefaults(title: string, shape: GoalShape): Omit<Go
       blockFront: '#2563B8',
       label: 'Objectif',
       buildCaption: 'Construction en cours…',
+      milestoneLow: 'Mabrouk! Premier étage & Fondations posés ! 🏢',
+      milestoneMid: 'Mabrouk! Deuxième étage & Charpente construits ! 🏢',
+      milestoneHigh: 'Mabrouk! Dernier étage & Flèche installés ! 🏆',
     },
   };
 
