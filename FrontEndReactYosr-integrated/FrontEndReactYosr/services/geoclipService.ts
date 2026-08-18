@@ -6,7 +6,7 @@ export interface GeoLocalizationResult {
   address: string;
 }
 
-const GEOCLIP_API_URL = "http://172.20.10.13:5001";
+const GEOCLIP_API_URL = "http://192.168.1.124:5001";
 
 
 export const localizeImage = async (

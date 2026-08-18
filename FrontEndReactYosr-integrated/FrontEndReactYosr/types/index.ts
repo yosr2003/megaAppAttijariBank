@@ -42,7 +42,9 @@ export interface EventItem {
   availabilityPercent: number;
   ticketsLeft: number;
   tags: string[];
-    description?: string; 
+  description?: string; 
+  latitude: number;
+  longitude: number;
 }
 
 export interface ServiceItem {

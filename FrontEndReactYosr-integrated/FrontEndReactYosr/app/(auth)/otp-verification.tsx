@@ -22,6 +22,7 @@ import Logo from '../../components/Logo';
 import GradientButton from '../../components/GradientButton';
 import { generateOtp, verifyOtp } from '../../services/twoFactor';
 import { saveToken, saveUser } from '../../utils/storage';
+import { redirectAfterAuth } from '../../utils/postAuthNavigation';
 
 type TwoFactorMethod = 'EMAIL' | 'SMS' | 'AUTHENTICATOR';
 
@@ -175,7 +176,7 @@ await saveToken(response.token);
         `Welcome ${response.firstName} ${response.lastName}`
       );
 
-      router.replace('/(main)/home');
+      await redirectAfterAuth(response);
     } catch (error: any) {
       Alert.alert(
         'Verification failed',

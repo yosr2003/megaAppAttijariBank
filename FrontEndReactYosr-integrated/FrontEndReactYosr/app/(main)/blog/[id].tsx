@@ -18,7 +18,7 @@ import { router, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 
 import { getUser } from "../../../utils/storage";
-import { getProfileImageUrl } from "../../../services/postService";
+import { deleteComment, getProfileImageUrl, updateComment } from "../../../services/postService";
 
 import {
   getPostById,
@@ -36,6 +36,8 @@ import {
   Spacing,
 } from "../../../constants/home/Layout";
 import { Typography } from "../../../constants/home/Typography";
+import CommentOptionsMenu from "@/components/CommentOptionsMenu";
+import EditCommentModal from "@/components/EditCommentModal";
 
 /* ============================================================
    TYPES
@@ -130,6 +132,14 @@ const [currentUserAvatar, setCurrentUserAvatar] =
 
   const [draft, setDraft] = useState("");
 
+  const [editCommentVisible, setEditCommentVisible] = useState(false);
+
+const [editingComment, setEditingComment] =
+  useState<BlogComment | null>(null);
+
+const [updatingComment, setUpdatingComment] =
+  useState(false);
+
   /* ============================================================
      LIKES
      Le nombre initial vient du backend.
@@ -145,6 +155,26 @@ const [currentUserAvatar, setCurrentUserAvatar] =
 
   const [currentUser, setCurrentUser] =
     useState<CurrentUser | null>(null);
+
+
+    // ============================================================
+// TRADUCTION DU COMMENTAIRE
+// ============================================================
+
+const [translationCommentId, setTranslationCommentId] =
+  useState<string | null>(null);
+
+const [targetLanguage, setTargetLanguage] =
+  useState("en");
+
+const [translatedComment, setTranslatedComment] =
+  useState("");
+
+const [translationLoading, setTranslationLoading] =
+  useState(false);
+
+const [translationError, setTranslationError] =
+  useState("");
 
 
   /* ============================================================
@@ -240,9 +270,15 @@ const [currentUserAvatar, setCurrentUserAvatar] =
         data.likedByCurrentUser ?? false
       );
 
+
+
+
+
+
       /* ======================================================
          COMMENTS
       ====================================================== */
+
 
 
 const apiComments: BlogComment[] = await Promise.all(
@@ -305,6 +341,8 @@ setComments(apiComments);
       setLoading(false);
     }
   };
+
+
 
   loadPost();
 }, [id, currentUser]);
@@ -479,6 +517,202 @@ const newComment: BlogComment = {
   }
 };
 
+
+const handleEditComment = (comment: BlogComment) => {
+  setEditingComment(comment);
+  setEditCommentVisible(true);
+};
+const handleUpdateComment = async (
+  text: string
+) => {
+
+  if (!editingComment || !currentUser?.id) {
+    return;
+  }
+
+  try {
+
+    setUpdatingComment(true);
+
+    const response = await updateComment(
+      Number(editingComment.id),
+      text,
+      currentUser.id
+    );
+
+    console.log(
+      "COMMENT UPDATED RESPONSE :",
+      response
+    );
+
+    setComments((prev) =>
+      prev.map((comment) =>
+        comment.id === editingComment.id
+          ? {
+              ...comment,
+              text: response.contenu,
+              time: formatCommentDate(
+                response.dateCommentaire
+              ),
+            }
+          : comment
+      )
+    );
+
+    setEditCommentVisible(false);
+    setEditingComment(null);
+
+  } catch (error: any) {
+
+    console.error(
+      "Erreur modification commentaire :",
+      error
+    );
+
+    console.error(
+      "DETAIL ERROR :",
+      error?.response?.data
+    );
+
+  } finally {
+
+    setUpdatingComment(false);
+  }
+};
+
+const handleDeleteComment = async (
+  commentId: string
+) => {
+
+  if (!currentUser?.id) {
+    console.error(
+      "Utilisateur non connecté"
+    );
+    return;
+  }
+
+  try {
+
+    console.log(
+      "SUPPRESSION COMMENTAIRE :",
+      commentId
+    );
+
+    await deleteComment(
+      Number(commentId),
+      currentUser.id
+    );
+
+    // Supprimer immédiatement de l'interface
+    setComments((prev) =>
+      prev.filter(
+        (comment) =>
+          comment.id !== commentId
+      )
+    );
+
+    console.log(
+      "COMMENTAIRE SUPPRIMÉ"
+    );
+
+  } catch (error: any) {
+
+    console.error(
+      "Erreur suppression commentaire :",
+      error
+    );
+
+    console.error(
+      "DETAIL ERROR :",
+      error?.response?.data
+    );
+  }
+};
+
+
+// ============================================================
+// TRADUIRE UN COMMENTAIRE
+// ============================================================
+
+const translateComment = async (
+  comment: BlogComment
+) => {
+  if (!comment.text?.trim()) {
+    return;
+  }
+
+  try {
+    setTranslationLoading(true);
+    setTranslationError("");
+    setTranslatedComment("");
+
+    const encodedText = encodeURIComponent(
+      comment.text.trim()
+    );
+
+    const url =
+      `https://lingva.ml/api/v1/auto/${targetLanguage}/${encodedText}`;
+
+    console.log("========== LINGVA COMMENT ==========");
+    console.log("COMMENT ID :", comment.id);
+    console.log("LANGUE :", targetLanguage);
+    console.log("URL :", url);
+
+    const response = await fetch(url);
+
+    if (!response.ok) {
+      throw new Error(
+        `Erreur HTTP : ${response.status}`
+      );
+    }
+
+    const data = await response.json();
+
+    console.log(
+      "LINGVA COMMENT RESPONSE :",
+      data
+    );
+
+    if (data.error) {
+      throw new Error(data.error);
+    }
+
+    setTranslatedComment(
+      data.translation || ""
+    );
+
+  } catch (error: any) {
+
+    console.error(
+      "Erreur traduction commentaire :",
+      error
+    );
+
+    setTranslationError(
+      "Impossible de traduire ce commentaire."
+    );
+
+    setTranslatedComment("");
+
+  } finally {
+    setTranslationLoading(false);
+  }
+};
+
+const handleTranslateComment = (
+  commentId: string
+) => {
+  setTranslationCommentId(commentId);
+  setTranslatedComment("");
+  setTranslationError("");
+  setTargetLanguage("en");
+};
+const closeCommentTranslation = () => {
+  setTranslationCommentId(null);
+  setTranslatedComment("");
+  setTranslationError("");
+  setTranslationLoading(false);
+};
   /* ============================================================
      LIKE
      
@@ -812,40 +1046,294 @@ const toggleLike = async () => {
 
           {comments.map((comment) => (
 
-            <View
-              key={comment.id}
-              style={styles.commentRow}
-            >
+<View
+  key={comment.id}
+  style={styles.commentRow}
+>
+  <Image
+    source={
+      comment.author.avatar || {
+        uri: "https://i.pravatar.cc/150?img=68",
+      }
+    }
+    style={styles.commentAvatar}
+  />
 
-    
-        <Image
-          source={
-            comment.author.avatar || {
-              uri: "https://i.pravatar.cc/150?img=68",
-            }
-          }
-          style={styles.commentAvatar}
+  <View style={styles.commentBubble}>
+
+    <View style={styles.commentHeader}>
+
+      <View style={styles.commentAuthorInfo}>
+        <Text style={styles.commentName}>
+          {comment.author.name}
+        </Text>
+
+        <Text style={styles.commentTime}>
+          · {comment.time}
+        </Text>
+      </View>
+
+<CommentOptionsMenu
+  commentId={comment.id}
+
+  onEdit={(commentId) => {
+    const comment = comments.find(
+      (c) => c.id === String(commentId)
+    );
+
+    if (comment) {
+      handleEditComment(comment);
+    }
+  }}
+
+  onDelete={(commentId) => {
+    handleDeleteComment(String(commentId));
+  }}
+
+onTranslate={(commentId) => {
+  handleTranslateComment(
+    String(commentId)
+  );
+}}
+/>
+
+    </View>
+
+    <Text style={styles.commentText}>
+      {comment.text}
+    </Text>
+
+    {/* ==================================================
+    TRADUCTION DU COMMENTAIRE
+================================================== */}
+
+{translationCommentId === comment.id && (
+  <View style={styles.translationBox}>
+
+    {/* HEADER */}
+
+    <View style={styles.translationHeader}>
+
+      <View style={styles.translationTitleRow}>
+
+        <Ionicons
+          name="language-outline"
+          size={16}
+          color={Colors.brandBlue}
         />
 
+        <Text style={styles.translationTitle}>
+          Traduire
+        </Text>
+
+      </View>
+
+      {/* FERMER */}
+
+      <TouchableOpacity
+        onPress={closeCommentTranslation}
+      >
+        <Ionicons
+          name="close"
+          size={17}
+          color={Colors.textMuted}
+        />
+      </TouchableOpacity>
+
+    </View>
 
 
-              <View style={styles.commentBubble}>
+    {/* LANGUES */}
 
-                <Text style={styles.commentName}>
-                  {comment.author.name}
-                </Text>
+    <View style={styles.languageRow}>
 
-                <Text style={styles.commentText}>
-                  {comment.text}
-                </Text>
+      {/* EN */}
 
-                <Text style={styles.commentTime}>
-                  {comment.time}
-                </Text>
+      <TouchableOpacity
+        style={[
+          styles.languageButton,
+          targetLanguage === "en" &&
+            styles.languageButtonActive,
+        ]}
+        onPress={() => {
+          setTargetLanguage("en");
+          setTranslatedComment("");
+          setTranslationError("");
+        }}
+      >
 
-              </View>
+        <Text
+          style={[
+            styles.languageText,
+            targetLanguage === "en" &&
+              styles.languageTextActive,
+          ]}
+        >
+          🇬🇧 EN
+        </Text>
 
-            </View>
+      </TouchableOpacity>
+
+
+      {/* FR */}
+
+      <TouchableOpacity
+        style={[
+          styles.languageButton,
+          targetLanguage === "fr" &&
+            styles.languageButtonActive,
+        ]}
+        onPress={() => {
+          setTargetLanguage("fr");
+          setTranslatedComment("");
+          setTranslationError("");
+        }}
+      >
+
+        <Text
+          style={[
+            styles.languageText,
+            targetLanguage === "fr" &&
+              styles.languageTextActive,
+          ]}
+        >
+          🇫🇷 FR
+        </Text>
+
+      </TouchableOpacity>
+
+
+      {/* AR */}
+
+      <TouchableOpacity
+        style={[
+          styles.languageButton,
+          targetLanguage === "ar" &&
+            styles.languageButtonActive,
+        ]}
+        onPress={() => {
+          setTargetLanguage("ar");
+          setTranslatedComment("");
+          setTranslationError("");
+        }}
+      >
+
+        <Text
+          style={[
+            styles.languageText,
+            targetLanguage === "ar" &&
+              styles.languageTextActive,
+          ]}
+        >
+          🇹🇳 AR
+        </Text>
+
+      </TouchableOpacity>
+
+
+      {/* ES */}
+
+      <TouchableOpacity
+        style={[
+          styles.languageButton,
+          targetLanguage === "es" &&
+            styles.languageButtonActive,
+        ]}
+        onPress={() => {
+          setTargetLanguage("es");
+          setTranslatedComment("");
+          setTranslationError("");
+        }}
+      >
+
+        <Text
+          style={[
+            styles.languageText,
+            targetLanguage === "es" &&
+              styles.languageTextActive,
+          ]}
+        >
+          🇪🇸 ES
+        </Text>
+
+      </TouchableOpacity>
+
+    </View>
+
+
+    {/* BOUTON TRADUIRE */}
+
+    <TouchableOpacity
+      style={styles.translateButton}
+      onPress={() =>
+        translateComment(comment)
+      }
+      disabled={translationLoading}
+      activeOpacity={0.8}
+    >
+
+      {translationLoading ? (
+
+        <ActivityIndicator
+          size="small"
+          color={Colors.white}
+        />
+
+      ) : (
+
+        <Ionicons
+          name="language-outline"
+          size={16}
+          color={Colors.white}
+        />
+
+      )}
+
+      <Text style={styles.translateButtonText}>
+        {translationLoading
+          ? "Traduction..."
+          : "Traduire"}
+      </Text>
+
+    </TouchableOpacity>
+
+
+    {/* ERREUR */}
+
+    {translationError ? (
+      <Text style={styles.translationError}>
+        {translationError}
+      </Text>
+    ) : null}
+
+
+    {/* RÉSULTAT */}
+
+    {translatedComment ? (
+
+      <View style={styles.translationResult}>
+
+        <Text
+          style={styles.translationResultLabel}
+        >
+          Traduction
+        </Text>
+
+        <Text
+          style={styles.translationResultText}
+        >
+          {translatedComment}
+        </Text>
+
+      </View>
+
+    ) : null}
+
+  </View>
+)}
+
+  </View>
+</View>
 
           ))}
 
@@ -900,6 +1388,23 @@ const toggleLike = async () => {
 
       </KeyboardAvoidingView>
 
+      {/* ============================================================
+          MODAL MODIFICATION COMMENTAIRE
+      ============================================================ */}
+
+      <EditCommentModal
+        visible={editCommentVisible}
+        initialText={editingComment?.text ?? ""}
+        loading={updatingComment}
+        onCancel={() => {
+          if (!updatingComment) {
+            setEditCommentVisible(false);
+            setEditingComment(null);
+          }
+        }}
+        onSave={handleUpdateComment}
+      />
+
     </SafeAreaView>
   );
 }
@@ -908,10 +1413,7 @@ const toggleLike = async () => {
    FORMAT DATE COMMENTAIRE
 ============================================================ */
 
-function formatCommentDate(
-  dateString: string
-): string {
-
+function formatCommentDate(dateString: string): string {
   if (!dateString) {
     return "";
   }
@@ -922,14 +1424,45 @@ function formatCommentDate(
     return "";
   }
 
-  return date.toLocaleDateString(
-    "fr-FR",
-    {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-    }
-  );
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+
+  // Protection si la date est dans le futur
+  if (diffMs < 0) {
+    return "À l'instant";
+  }
+
+  const diffSeconds = Math.floor(diffMs / 1000);
+  const diffMinutes = Math.floor(diffSeconds / 60);
+  const diffHours = Math.floor(diffMinutes / 60);
+  const diffDays = Math.floor(diffHours / 24);
+
+  // Quelques secondes
+  if (diffSeconds < 60) {
+    return "À l'instant";
+  }
+
+  // Minutes
+  if (diffMinutes < 60) {
+    return `${diffMinutes} min`;
+  }
+
+  // Heures
+  if (diffHours < 24) {
+    return `${diffHours} h`;
+  }
+
+  // Jours
+  if (diffDays < 7) {
+    return `${diffDays} j`;
+  }
+
+  // Au-delà d'une semaine :
+  // exemple : "12 août"
+  return date.toLocaleDateString("fr-FR", {
+    day: "numeric",
+    month: "short",
+  });
 }
 
 /* ============================================================
@@ -1070,31 +1603,34 @@ const styles = StyleSheet.create({
     borderRadius: 17,
   },
 
-  commentBubble: {
-    flex: 1,
-    backgroundColor: Colors.card,
-    borderRadius: Radius.md,
-    padding: Spacing.sm,
-    borderWidth: 1,
-    borderColor: Colors.cardBorder,
-  },
+commentBubble: {
+  flex: 1,
+  backgroundColor: Colors.card,
+  borderRadius: Radius.md,
+  paddingVertical: 8,
+  paddingHorizontal: 10,
+  borderWidth: 1,
+  borderColor: Colors.cardBorder,
+},
 
-  commentName: {
-    ...Typography.captionMedium,
-    color: Colors.textPrimary,
-  },
+commentName: {
+  ...Typography.captionMedium,
+  color: Colors.textPrimary,
+  fontWeight: "700",
+},
 
-  commentText: {
-    ...Typography.body,
-    color: Colors.textSecondary,
-    marginTop: 2,
-  },
+commentTime: {
+  fontSize: 11,
+  color: Colors.textMuted,
+  marginLeft: 5,
+},
 
-  commentTime: {
-    ...Typography.caption,
-    color: Colors.textMuted,
-    marginTop: 4,
-  },
+commentText: {
+  ...Typography.body,
+  color: Colors.textSecondary,
+  marginTop: 3,
+  lineHeight: 19,
+},
 
   noComments: {
     ...Typography.caption,
@@ -1133,5 +1669,115 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  commentHeader: {
+  flexDirection: "row",
+  alignItems: "center",
+  justifyContent: "space-between",
+},
 
+commentAuthorInfo: {
+  flexDirection: "row",
+  alignItems: "center",
+  flex: 1,
+},
+translationBox: {
+  backgroundColor: Colors.cardAlt,
+  borderWidth: 1,
+  borderColor: Colors.cardBorder,
+  borderRadius: Radius.md,
+  padding: Spacing.sm,
+  marginTop: Spacing.sm,
+},
+
+translationHeader: {
+  flexDirection: "row",
+  alignItems: "center",
+  justifyContent: "space-between",
+  marginBottom: Spacing.sm,
+},
+
+translationTitleRow: {
+  flexDirection: "row",
+  alignItems: "center",
+  gap: 6,
+},
+
+translationTitle: {
+  ...Typography.caption,
+  color: Colors.textPrimary,
+  fontWeight: "700",
+},
+
+languageRow: {
+  flexDirection: "row",
+  gap: 6,
+  marginBottom: Spacing.sm,
+  flexWrap: "wrap",
+},
+
+languageButton: {
+  paddingHorizontal: 9,
+  paddingVertical: 6,
+  borderRadius: Radius.pill,
+  backgroundColor: Colors.card,
+  borderWidth: 1,
+  borderColor: Colors.cardBorder,
+},
+
+languageButtonActive: {
+  backgroundColor: Colors.brandBlue,
+  borderColor: Colors.brandBlue,
+},
+
+languageText: {
+  ...Typography.caption,
+  color: Colors.textMuted,
+  fontWeight: "600",
+},
+
+languageTextActive: {
+  color: Colors.white,
+},
+
+translateButton: {
+  flexDirection: "row",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: 6,
+  backgroundColor: Colors.brandBlue,
+  borderRadius: Radius.md,
+  paddingVertical: 9,
+},
+
+translateButtonText: {
+  ...Typography.caption,
+  color: Colors.white,
+  fontWeight: "700",
+},
+
+translationResult: {
+  marginTop: Spacing.sm,
+  paddingTop: Spacing.sm,
+  borderTopWidth: 1,
+  borderTopColor: Colors.cardBorder,
+},
+
+translationResultLabel: {
+  ...Typography.caption,
+  color: Colors.brandBlue,
+  fontWeight: "700",
+  marginBottom: 4,
+},
+
+translationResultText: {
+  ...Typography.body,
+  color: Colors.textSecondary,
+  lineHeight: 20,
+},
+
+translationError: {
+  ...Typography.caption,
+  color: Colors.danger,
+  marginTop: Spacing.sm,
+},
 });

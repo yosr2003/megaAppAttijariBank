@@ -16,6 +16,7 @@ import { Radius, Spacing } from "../constants/home/Layout";
 interface PostOptionsMenuProps {
   postId: number | string;
   onDelete?: (postId: number | string) => void;
+  onTranslate?: () => void;
 }
 
 /**
@@ -29,6 +30,7 @@ interface PostOptionsMenuProps {
 export default function PostOptionsMenu({
   postId,
   onDelete,
+  onTranslate,
 }: PostOptionsMenuProps) {
   const [visible, setVisible] = useState(false);
   const [menuPos, setMenuPos] = useState({ top: 0, right: 0 });
@@ -98,31 +100,51 @@ export default function PostOptionsMenu({
               { top: menuPos.top, right: menuPos.right },
             ]}
           >
-            <TouchableOpacity
-              style={styles.menuItem}
-              activeOpacity={0.7}
-              onPress={handleUpdate}
-            >
-              <Ionicons
-                name="pencil-outline"
-                size={18}
-                color={Colors.textPrimary}
-              />
-            </TouchableOpacity>
+          {/* MODIFIER */}
+<TouchableOpacity
+  style={styles.menuItem}
+  activeOpacity={0.7}
+  onPress={handleUpdate}
+>
+  <Ionicons
+    name="pencil-outline"
+    size={18}
+    color={Colors.textPrimary}
+  />
+</TouchableOpacity>
 
-            <View style={styles.separator} />
+<View style={styles.separator} />
 
-            <TouchableOpacity
-              style={styles.menuItem}
-              activeOpacity={0.7}
-              onPress={handleDelete}
-            >
-              <Ionicons
-                name="trash-outline"
-                size={18}
-                color={Colors.danger}
-              />
-            </TouchableOpacity>
+{/* TRADUIRE */}
+<TouchableOpacity
+  style={styles.menuItem}
+  activeOpacity={0.7}
+  onPress={() => {
+    closeMenu();
+    onTranslate?.();
+  }}
+>
+  <Ionicons
+    name="language-outline"
+    size={18}
+    color={Colors.brandBlue}
+  />
+</TouchableOpacity>
+
+<View style={styles.separator} />
+
+{/* SUPPRIMER */}
+<TouchableOpacity
+  style={styles.menuItem}
+  activeOpacity={0.7}
+  onPress={handleDelete}
+>
+  <Ionicons
+    name="trash-outline"
+    size={18}
+    color={Colors.danger}
+  />
+</TouchableOpacity>
           </View>
         </Pressable>
       </Modal>

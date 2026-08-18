@@ -103,10 +103,8 @@ router.push({
 });
 
   } else {
-
-    router.replace("/(auth)/login");
-
-  }
+  router.replace("/(main)/home");
+}
 
 } else {
         if (result.error !== 'user_cancel' && result.error !== 'system_cancel') {

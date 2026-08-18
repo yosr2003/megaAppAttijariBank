@@ -38,7 +38,7 @@ export const events: EventItem[] = [
   {
     id: "djerba-gourmet-festival",
     title: "Djerba Gourmet Festival",
-    category: "festivals",
+    category: "festival",
     categoryLabel: "Food Festivals",
     categoryColor: Colors.categoryFestivals,
     image:

@@ -107,7 +107,105 @@ public class CommentaireServiceImpl {
     }
 
 
+    // ============================================================
+    // SUPPRIMER UN COMMENTAIRE
+    // ============================================================
+
+    @Transactional
+    public void supprimerCommentaire(
+            Long commentId,
+            Long userId
+    ) {
+
+        Commentaire commentaire =
+                commentaireRepository.findById(commentId)
+                        .orElseThrow(() ->
+                                new RuntimeException(
+                                        "Commentaire non trouvé avec id : "
+                                                + commentId
+                                )
+                        );
+
+
+        // ========================================================
+        // VERIFICATION AUTEUR
+        // ========================================================
+
+        if (!commentaire.getAuthor().getId()
+                .equals(userId)) {
+
+            throw new RuntimeException(
+                    "Vous n'êtes pas autorisé à supprimer ce commentaire"
+            );
+        }
+
+
+        // ========================================================
+        // DELETE
+        // ========================================================
+
+        commentaireRepository.delete(commentaire);
+    }
+
+    // ============================================================
+    // MODIFIER COMMENTAIRE
+    // ============================================================
+
+    @Transactional
+    public CommentaireResponse modifierCommentaire(
+            Long commentId,
+            CommentaireRequest request
+    ) {
+
+        if (request.getContenu() == null ||
+                request.getContenu().trim().isEmpty()) {
+
+            throw new RuntimeException(
+                    "Le commentaire ne peut pas être vide"
+            );
+        }
+
+        Commentaire commentaire =
+                commentaireRepository.findById(commentId)
+                        .orElseThrow(() ->
+                                new RuntimeException(
+                                        "Commentaire non trouvé avec id : "
+                                                + commentId
+                                )
+                        );
+
+
+        // ========================================================
+        // VERIFICATION AUTEUR
+        // ========================================================
+
+        if (!commentaire.getAuthor().getId()
+                .equals(request.getUserId())) {
+
+            throw new RuntimeException(
+                    "Vous n'êtes pas autorisé à modifier ce commentaire"
+            );
+        }
+
+
+        // ========================================================
+        // MODIFICATION
+        // ========================================================
+
+        commentaire.setContenu(
+                request.getContenu().trim()
+        );
+
+        Commentaire updatedCommentaire =
+                commentaireRepository.save(commentaire);
+
+
+        return toResponse(updatedCommentaire);
+    }
 
 
 
 }
+
+
+

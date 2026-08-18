@@ -265,3 +265,80 @@ export const deletePost = async (postId: number) => {
 
   return response.data;
 };
+
+/**
+ * Modifier un commentaire
+ */
+export const updateComment = async (
+  commentId: number | string,
+  contenu: string,
+  userId: number
+) => {
+  const token = await getToken();
+
+  if (!contenu.trim()) {
+    throw new Error(
+      "Le commentaire ne peut pas être vide"
+    );
+  }
+
+  console.log("========== UPDATE COMMENT ==========");
+  console.log("COMMENT ID :", commentId);
+  console.log("CONTENU :", contenu);
+  console.log("USER ID :", userId);
+
+  const response = await api.put(
+    `/comments/${commentId}`,
+    {
+      contenu: contenu.trim(),
+      userId,
+    },
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+    }
+  );
+
+  console.log(
+    "COMMENT UPDATED :",
+    response.data
+  );
+
+  return response.data;
+};
+
+
+/**
+ * Supprimer un commentaire
+ */
+export const deleteComment = async (
+  commentId: number | string,
+  userId: number
+) => {
+  const token = await getToken();
+
+  console.log("========== DELETE COMMENT ==========");
+  console.log("COMMENT ID :", commentId);
+  console.log("USER ID :", userId);
+
+  const response = await api.delete(
+    `/comments/${commentId}`,
+    {
+      params: {
+        userId,
+      },
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
+
+  console.log(
+    "COMMENT DELETED :",
+    commentId
+  );
+
+  return response.data;
+};

@@ -41,4 +41,39 @@ public class CommentaireController {
                 .status(HttpStatus.CREATED)
                 .body(response);
     }
+
+    // ============================================================
+    // UPDATE COMMENT
+    // ============================================================
+
+    @PutMapping("/{commentId}")
+    public ResponseEntity<CommentaireResponse> updateComment(
+            @PathVariable Long commentId,
+            @RequestBody CommentaireRequest request
+    ) {
+
+        return ResponseEntity.ok(
+                commentaireService.modifierCommentaire(
+                        commentId,
+                        request
+                )
+        );
+    }
+    // ============================================================
+    // DELETE COMMENT
+    // ============================================================
+
+    @DeleteMapping("/{commentId}")
+    public ResponseEntity<Void> deleteComment(
+            @PathVariable Long commentId,
+            @RequestParam Long userId
+    ) {
+
+        commentaireService.supprimerCommentaire(
+                commentId,
+                userId
+        );
+
+        return ResponseEntity.noContent().build();
+    }
 }

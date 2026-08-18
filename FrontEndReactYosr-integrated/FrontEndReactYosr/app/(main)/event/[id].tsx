@@ -31,7 +31,7 @@ export default function EventDetailsScreen() {
     useState<ButtonState>("idle");
 
   useEffect(() => {
-    fetch("https://mock.apidog.com/m1/1351051-1353850-default/events")
+    fetch("https://mock.apidog.com/m1/1351051-1353850-default/SuperTounsiEvents")
       .then((res) => res.json())
       .then((data) => {
         const found = data.events.find(
@@ -83,6 +83,8 @@ export default function EventDetailsScreen() {
 
           description: found.description || "",
           tags: ["music", "live", "fun"],
+            latitude: Number(found.latitude),
+            longitude: Number(found.longitude),
         };
 
         setEvent(formatted);

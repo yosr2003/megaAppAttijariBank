@@ -51,36 +51,6 @@ export default function RoleInformationScreen() {
           title: 'Complete your Client Profile',
           subtitle: 'Please provide details to configure your banking and services account.',
         };
-      case 'RESTAURANT_OWNER':
-        return {
-          title: 'Complete your Restaurant Profile',
-          subtitle: 'Set up your restaurant registration details to start accepting orders.',
-        };
-      case 'SELLER':
-        return {
-          title: 'Complete your Seller Profile',
-          subtitle: 'Provide your marketplace store information and business credentials.',
-        };
-      case 'DELIVERY_DRIVER':
-        return {
-          title: 'Complete your Delivery Profile',
-          subtitle: 'Enter your delivery vehicle and license information to activate your profile.',
-        };
-      case 'TAXI_DRIVER':
-        return {
-          title: 'Complete your Taxi Profile',
-          subtitle: 'Provide your driving permit and taxi license details to start driving.',
-        };
-      case 'HOTEL_OWNER':
-        return {
-          title: 'Complete your Hotel Profile',
-          subtitle: 'Set up your accommodation business details and lodging license.',
-        };
-      case 'OTHER_PROFESSIONAL':
-        return {
-          title: 'Complete your Professional Profile',
-          subtitle: 'Describe your business profile and upload supporting documentation.',
-        };
       case 'ADMIN':
         return {
           title: 'Complete your Admin Profile',
@@ -100,10 +70,6 @@ export default function RoleInformationScreen() {
     switch (role) {
       case 'CLIENT':
         return !!(
-          formData.nationalId?.trim() &&
-          formData.dateOfBirth &&
-          formData.gender &&
-          formData.preferredLanguage &&
           formData.address?.trim() &&
           formData.walletCurrency &&
           formData.paymentMethod &&
@@ -172,8 +138,6 @@ userType: role,
 if(role==="CLIENT"){
 
 Object.assign(userData,{
- preferredLanguage:
- formData.preferredLanguage,
 
  address:
  formData.address,
@@ -257,37 +221,7 @@ router.push({
       case 'CLIENT':
         return (
           <Card title="Client Details" iconName="user">
-            <InputField
-              label="National ID"
-              placeholder="Enter national ID"
-              leftIconName="credit-card"
-              keyboardType="numeric"
-              value={formData.nationalId || ''}
-              onChangeText={(val) => updateField('nationalId', val)}
-            />
-            <DatePickerField
-              label="Date of Birth"
-              value={formData.dateOfBirth || null}
-              onChange={(date) => updateField('dateOfBirth', date)}
-            />
-            <CustomDropdown
-              label="Gender"
-              value={formData.gender || ''}
-              onChange={(val) => updateField('gender', val)}
-              options={['Male', 'Female', 'Other']}
-              placeholder="Select gender"
-              leftIconName="user"
-              modalTitle="Select Gender"
-            />
-            <CustomDropdown
-              label="Preferred Language"
-              value={formData.preferredLanguage || ''}
-              onChange={(val) => updateField('preferredLanguage', val)}
-              options={['Arabic', 'French', 'English']}
-              placeholder="Select language"
-              leftIconName="globe"
-              modalTitle="Select Preferred Language"
-            />
+        
             <InputField
               label="Address"
               placeholder="Default home address"

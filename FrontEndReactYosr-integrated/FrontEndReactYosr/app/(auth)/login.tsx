@@ -4,6 +4,7 @@ import { router } from "expo-router";
 import { login } from "../../services/authService";
 import { loginFace } from "../../services/face";
 import { saveToken, saveUser } from "../../utils/storage";
+import { redirectAfterAuth } from "../../utils/postAuthNavigation";
 import * as ImagePicker from 'expo-image-picker';
 import {
   StyleSheet,
@@ -91,9 +92,9 @@ await saveUser(response);
       `Welcome ${response.firstName} ${response.lastName}`
     );
 
-    console.log(response);
+    console.log("responseeeeeeeeeeeeeeeeee!!!!!!!!!!!!!!!!" , response);
 
-    router.replace("/(main)/home");
+    await redirectAfterAuth(response);
   } catch (error: any) {
     if (error.response) {
       Alert.alert(
@@ -170,7 +171,7 @@ const handleFaceLogin = async () => {
 
 
 
-    router.replace("/(main)/home");
+    await redirectAfterAuth(response);
 
 
 

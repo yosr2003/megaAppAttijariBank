@@ -6,7 +6,8 @@ import {
   Text,
   TouchableOpacity,
   View,
-  ImageSourcePropType, ImageURISource
+  ImageSourcePropType, ImageURISource,
+  ActivityIndicator
 } from "react-native";
 
 import { Ionicons } from "@expo/vector-icons";
@@ -110,6 +111,23 @@ const [likeLoading, setLikeLoading] = useState(false);
 
   const [authorImage, setAuthorImage] =
     useState<any>(null);
+
+const [translationVisible, setTranslationVisible] =
+  useState(false);
+
+const [targetLanguage, setTargetLanguage] =
+  useState("en");
+
+const [translatedContent, setTranslatedContent] =
+  useState("");
+
+const [translationLoading, setTranslationLoading] =
+  useState(false);
+
+const [translationError, setTranslationError] =
+  useState("");
+
+
 const [postImage, setPostImage] =
   useState<ImageURISource | null>(null);
 
@@ -197,6 +215,64 @@ const toggleLike = async () => {
   }
 };
 
+const translatePost = async () => {
+  if (!post.contenu?.trim()) {
+    return;
+  }
+
+  try {
+    setTranslationLoading(true);
+    setTranslationError("");
+
+    const encodedText = encodeURIComponent(
+      post.contenu.trim()
+    );
+
+    const url =
+      `https://lingva.ml/api/v1/auto/${targetLanguage}/${encodedText}`;
+
+    console.log("========== LINGVA ==========");
+    console.log("URL :", url);
+
+    const response = await fetch(url);
+
+    if (!response.ok) {
+      throw new Error(
+        `Erreur HTTP : ${response.status}`
+      );
+    }
+
+    const data = await response.json();
+
+    console.log("LINGVA RESPONSE :", data);
+
+    if (data.error) {
+      throw new Error(data.error);
+    }
+
+    setTranslatedContent(
+      data.translation || ""
+    );
+
+  } catch (error: any) {
+    console.error(
+      "Erreur traduction :",
+      error
+    );
+
+    setTranslationError(
+      "Impossible de traduire ce post."
+    );
+
+    setTranslatedContent("");
+
+  } finally {
+    setTranslationLoading(false);
+  }
+};
+
+
+
   const authorName =
     `${post.author?.firstName ?? ""} ${
       post.author?.lastName ?? ""
@@ -269,15 +345,185 @@ const toggleLike = async () => {
         <PostOptionsMenu
         postId={post.id}
         onDelete={onDelete}
+        onTranslate={() => {
+          setTranslationVisible(true);
+          setTranslatedContent("");
+          setTranslationError("");
+        }}
       />
 
       </View>
 
 
-      {/* CONTENU */}
-      <Text style={styles.content}>
-        {renderContent(post.contenu)}
+{/* CONTENU */}
+<Text style={styles.content}>
+  {renderContent(post.contenu)}
+</Text>
+
+{/* TRADUCTION */}
+{translationVisible && (
+  <View style={styles.translationBox}>
+
+    {/* HEADER */}
+    <View style={styles.translationHeader}>
+      <View style={styles.translationTitleRow}>
+        <Ionicons
+          name="language-outline"
+          size={16}
+          color={Colors.brandBlue}
+        />
+
+        <Text style={styles.translationTitle}>
+          Traduire
+        </Text>
+      </View>
+
+      {/* FERMER */}
+      <TouchableOpacity
+        onPress={() => {
+          setTranslationVisible(false);
+          setTranslatedContent("");
+          setTranslationError("");
+        }}
+      >
+        <Ionicons
+          name="close"
+          size={17}
+          color={Colors.textMuted}
+        />
+      </TouchableOpacity>
+    </View>
+
+    {/* LANGUES */}
+    <View style={styles.languageRow}>
+
+      <TouchableOpacity
+        style={[
+          styles.languageButton,
+          targetLanguage === "en" &&
+            styles.languageButtonActive,
+        ]}
+        onPress={() => setTargetLanguage("en")}
+      >
+        <Text
+          style={[
+            styles.languageText,
+            targetLanguage === "en" &&
+              styles.languageTextActive,
+          ]}
+        >
+          🇬🇧 EN
+        </Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={[
+          styles.languageButton,
+          targetLanguage === "fr" &&
+            styles.languageButtonActive,
+        ]}
+        onPress={() => setTargetLanguage("fr")}
+      >
+        <Text
+          style={[
+            styles.languageText,
+            targetLanguage === "fr" &&
+              styles.languageTextActive,
+          ]}
+        >
+          🇫🇷 FR
+        </Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={[
+          styles.languageButton,
+          targetLanguage === "ar" &&
+            styles.languageButtonActive,
+        ]}
+        onPress={() => setTargetLanguage("ar")}
+      >
+        <Text
+          style={[
+            styles.languageText,
+            targetLanguage === "ar" &&
+              styles.languageTextActive,
+          ]}
+        >
+          🇹🇳 AR
+        </Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={[
+          styles.languageButton,
+          targetLanguage === "es" &&
+            styles.languageButtonActive,
+        ]}
+        onPress={() => setTargetLanguage("es")}
+      >
+        <Text
+          style={[
+            styles.languageText,
+            targetLanguage === "es" &&
+              styles.languageTextActive,
+          ]}
+        >
+          🇪🇸 ES
+        </Text>
+      </TouchableOpacity>
+
+    </View>
+
+    {/* BOUTON TRADUIRE */}
+    <TouchableOpacity
+      style={styles.translateButton}
+      onPress={translatePost}
+      disabled={translationLoading}
+      activeOpacity={0.8}
+    >
+      {translationLoading ? (
+        <ActivityIndicator
+          size="small"
+          color={Colors.white}
+        />
+      ) : (
+        <Ionicons
+          name="language-outline"
+          size={16}
+          color={Colors.white}
+        />
+      )}
+
+      <Text style={styles.translateButtonText}>
+        {translationLoading
+          ? "Traduction..."
+          : "Traduire"}
       </Text>
+    </TouchableOpacity>
+
+    {/* ERREUR */}
+    {translationError ? (
+      <Text style={styles.translationError}>
+        {translationError}
+      </Text>
+    ) : null}
+
+    {/* RÉSULTAT */}
+    {translatedContent ? (
+      <View style={styles.translationResult}>
+        <Text style={styles.translationResultLabel}>
+          Traduction
+        </Text>
+
+        <Text style={styles.translationResultText}>
+          {translatedContent}
+        </Text>
+      </View>
+    ) : null}
+
+  </View>
+)}
 
   
  {postImage ? (
@@ -459,4 +705,103 @@ const styles = StyleSheet.create({
     ...Typography.caption,
     color: Colors.textMuted,
   },
+  translationBox: {
+  backgroundColor: Colors.cardAlt,
+  borderWidth: 1,
+  borderColor: Colors.cardBorder,
+  borderRadius: Radius.md,
+  padding: Spacing.sm,
+  marginBottom: Spacing.sm,
+},
+
+translationHeader: {
+  flexDirection: "row",
+  alignItems: "center",
+  justifyContent: "space-between",
+  marginBottom: Spacing.sm,
+},
+
+translationTitleRow: {
+  flexDirection: "row",
+  alignItems: "center",
+  gap: 6,
+},
+
+translationTitle: {
+  ...Typography.caption,
+  color: Colors.textPrimary,
+  fontWeight: "700",
+},
+
+languageRow: {
+  flexDirection: "row",
+  gap: 6,
+  marginBottom: Spacing.sm,
+},
+
+languageButton: {
+  paddingHorizontal: 9,
+  paddingVertical: 6,
+  borderRadius: Radius.pill,
+  backgroundColor: Colors.card,
+  borderWidth: 1,
+  borderColor: Colors.cardBorder,
+},
+
+languageButtonActive: {
+  backgroundColor: Colors.brandBlue,
+  borderColor: Colors.brandBlue,
+},
+
+languageText: {
+  ...Typography.caption,
+  color: Colors.textMuted,
+  fontWeight: "600",
+},
+
+languageTextActive: {
+  color: Colors.white,
+},
+
+translateButton: {
+  flexDirection: "row",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: 6,
+  backgroundColor: Colors.brandBlue,
+  borderRadius: Radius.md,
+  paddingVertical: 9,
+},
+
+translateButtonText: {
+  ...Typography.caption,
+  color: Colors.white,
+  fontWeight: "700",
+},
+
+translationResult: {
+  marginTop: Spacing.sm,
+  paddingTop: Spacing.sm,
+  borderTopWidth: 1,
+  borderTopColor: Colors.cardBorder,
+},
+
+translationResultLabel: {
+  ...Typography.caption,
+  color: Colors.brandBlue,
+  fontWeight: "700",
+  marginBottom: 4,
+},
+
+translationResultText: {
+  ...Typography.body,
+  color: Colors.textSecondary,
+  lineHeight: 20,
+},
+
+translationError: {
+  ...Typography.caption,
+  color: Colors.danger,
+  marginTop: Spacing.sm,
+},
 });
